@@ -105,9 +105,6 @@ class ViewBuilder(object):
 class ViewBuilderV10(ViewBuilder):
     """Model an Openstack API V1.0 server response."""
 
-    def _build_extra(self, response, inst):
-        response['uuid'] = inst['uuid']
-
     def _build_image(self, response, inst):
         if inst.get('image_ref', None):
             image_ref = inst['image_ref']
@@ -186,7 +183,6 @@ class ViewBuilderV11(ViewBuilder):
 
     def _build_extra(self, response, inst):
         self._build_links(response, inst)
-        response['uuid'] = inst['uuid']
 
     def _build_links(self, response, inst):
         href = self.generate_href(inst["id"])

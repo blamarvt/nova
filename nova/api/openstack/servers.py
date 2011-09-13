@@ -77,7 +77,7 @@ class Controller(object):
     def _limit_items(self, items, req):
         raise NotImplementedError()
 
-    def _action_rebuild(self, info, request, instance_id):
+    def _action_rebuild(self, info, request, instance_uuid):
         raise NotImplementedError()
 
     def _get_servers(self, req, is_detail):
@@ -233,7 +233,7 @@ class Controller(object):
         msg = _("Invalid request body")
         raise exc.HTTPBadRequest(explanation=msg)
 
-    def _action_create_backup(self, input_dict, req, instance_id):
+    def _action_create_backup(self, input_dict, req, instance_uuid):
         """Backup a server instance.
 
         Images now have an `image_type` associated with them, which can be
@@ -267,8 +267,7 @@ class Controller(object):
 
         # preserve link to server in image properties
         server_ref = os.path.join(req.application_url,
-                                  'servers',
-                                  str(instance_id))
+                                  'servers',instance_uuid)
         props = {'instance_ref': server_ref}
 
         metadata = entity.get('metadata', {})
@@ -281,7 +280,7 @@ class Controller(object):
             raise webob.exc.HTTPBadRequest(explanation=msg)
 
         image = self.compute_api.backup(context,
-                                        instance_id,
+                                        instance_uuid,
                                         image_name,
                                         backup_type,
                                         rotation,
@@ -539,12 +538,12 @@ class Controller(object):
                 error=item.error))
         return dict(actions=actions)
 
-    def resize(self, req, instance_id, flavor_id):
+    def resize(self, req, instance_uuid, flavor_id):
         """Begin the resize process with given instance/flavor."""
         context = req.environ["nova.context"]
 
         try:
-            self.compute_api.resize(context, instance_id, flavor_id)
+            self.compute_api.resize(context, instance_uuid, flavor_id)
         except exception.FlavorNotFound:
             msg = _("Unable to locate requested flavor.")
             raise exc.HTTPBadRequest(explanation=msg)
@@ -607,7 +606,7 @@ class ControllerV10(Controller):
 
         return self.resize(req, id, flavor_id)
 
-    def _action_rebuild(self, info, request, instance_id):
+    def _action_rebuild(self, info, request, instance_uuid):
         context = request.environ['nova.context']
 
         try:
@@ -620,9 +619,9 @@ class ControllerV10(Controller):
         password = utils.generate_password(16)
 
         try:
-            self.compute_api.rebuild(context, instance_id, image_id, password)
+            self.compute_api.rebuild(context, instance_uuid, image_id, password)
         except exception.RebuildRequiresActiveInstance:
-            msg = _("Instance %s must be active to rebuild.") % instance_id
+            msg = _("Instance %s must be active to rebuild.") % instance_uuid
             raise exc.HTTPConflict(explanation=msg)
 
         return webob.Response(status_int=202)
@@ -741,7 +740,7 @@ class ControllerV11(Controller):
 
         return self.resize(req, id, flavor_ref)
 
-    def _action_rebuild(self, info, request, instance_id):
+    def _action_rebuild(self, info, request, instance_uuid):
         context = request.environ['nova.context']
 
         try:
@@ -763,24 +762,24 @@ class ControllerV11(Controller):
                                        utils.generate_password(16))
 
         try:
-            self.compute_api.rebuild(context, instance_id, image_href,
+            self.compute_api.rebuild(context, instance_uuid, image_href,
                                      password, name=name, metadata=metadata,
                                      files_to_inject=personalities)
         except exception.RebuildRequiresActiveInstance:
-            msg = _("Instance %s must be active to rebuild.") % instance_id
+            msg = _("Instance %s must be active to rebuild.") % instance_uuid
             raise exc.HTTPConflict(explanation=msg)
         except exception.InstanceNotFound:
-            msg = _("Instance %s could not be found") % instance_id
+            msg = _("Instance %s could not be found") % instance_uuid
             raise exc.HTTPNotFound(explanation=msg)
 
-        instance = self.compute_api.routing_get(context, instance_id)
+        instance = self.compute_api.routing_get(context, instance_uuid)
         view = self._build_view(request, instance, is_detail=True)
         view['server']['adminPass'] = password
 
         return view
 
     @common.check_snapshots_enabled
-    def _action_create_image(self, input_dict, req, instance_id):
+    def _action_create_image(self, input_dict, req, instance_uuid):
         """Snapshot a server instance."""
         entity = input_dict.get("createImage", {})
 
@@ -798,7 +797,7 @@ class ControllerV11(Controller):
         # preserve link to server in image properties
         server_ref = os.path.join(req.application_url,
                                   'servers',
-                                  str(instance_id))
+                                  instance_uuid)
         props = {'instance_ref': server_ref}
 
         metadata = entity.get('metadata', {})
@@ -811,7 +810,7 @@ class ControllerV11(Controller):
             raise webob.exc.HTTPBadRequest(explanation=msg)
 
         image = self.compute_api.snapshot(context,
-                                          instance_id,
+                                          instance_uuid,
                                           image_name,
                                           extra_properties=props)
 
@@ -871,10 +870,9 @@ class ServerXMLSerializer(wsgi.XMLDictSerializer):
         return self.addresses_serializer.networks_to_xml(xml_doc, addresses)
 
     def _add_server_attributes(self, node, server):
-        node.setAttribute('id', str(server['id']))
+        node.setAttribute('id', str(server['uuid']))
         node.setAttribute('userId', str(server['user_id']))
         node.setAttribute('tenantId', str(server['tenant_id']))
-        node.setAttribute('uuid', str(server['uuid']))
         node.setAttribute('hostId', str(server['hostId']))
         node.setAttribute('name', server['name'])
         node.setAttribute('created', str(server['created']))
@@ -889,7 +887,7 @@ class ServerXMLSerializer(wsgi.XMLDictSerializer):
 
     def _server_to_xml(self, xml_doc, server):
         server_node = xml_doc.createElement('server')
-        server_node.setAttribute('id', str(server['id']))
+        server_node.setAttribute('id', str(server['uuid']))
         server_node.setAttribute('name', server['name'])
         link_nodes = self._create_link_nodes(xml_doc,
                                              server['links'])
