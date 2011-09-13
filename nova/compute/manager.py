@@ -836,8 +836,7 @@ class ComputeManager(manager.SchedulerDependentManager):
     def confirm_resize(self, context, instance_uuid, migration_id):
         """Destroys the source instance."""
         migration_ref = self.db.migration_get(context, migration_id)
-        instance_ref = self.db.instance_get_by_uuid(context,
-                migration_ref.instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
 
         network_info = self._get_instance_nw_info(context, instance_ref)
         self.driver.destroy(instance_ref, network_info)
@@ -857,8 +856,7 @@ class ComputeManager(manager.SchedulerDependentManager):
 
         """
         migration_ref = self.db.migration_get(context, migration_id)
-        instance_ref = self.db.instance_get_by_uuid(context,
-                migration_ref.instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
 
         network_info = self._get_instance_nw_info(context, instance_ref)
         self.driver.destroy(instance_ref, network_info)
@@ -880,8 +878,7 @@ class ComputeManager(manager.SchedulerDependentManager):
 
         """
         migration_ref = self.db.migration_get(context, migration_id)
-        instance_ref = self.db.instance_get_by_uuid(context,
-                migration_ref.instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
 
         instance_type = self.db.instance_type_get(context,
                 migration_ref['old_instance_type_id'])
@@ -913,11 +910,7 @@ class ComputeManager(manager.SchedulerDependentManager):
 
         """
         context = context.elevated()
-
-        # Because of checks_instance_lock, this must currently be called
-        # instance_uuid. However, the compute API is always passing the UUID
-        # of the instance down
-        instance_ref = self.db.instance_get_by_uuid(context, instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
 
         if instance_ref['host'] == FLAGS.host:
             self._instance_update(context,
@@ -962,8 +955,7 @@ class ComputeManager(manager.SchedulerDependentManager):
     def resize_instance(self, context, instance_uuid, migration_id):
         """Starts the migration of a running instance to another host."""
         migration_ref = self.db.migration_get(context, migration_id)
-        instance_ref = self.db.instance_get_by_uuid(context,
-                migration_ref.instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
 
         self.db.migration_update(context,
                                  migration_id,
@@ -998,8 +990,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         migration_ref = self.db.migration_get(context, migration_id)
 
         resize_instance = False
-        instance_ref = self.db.instance_get_by_uuid(context,
-                migration_ref.instance_uuid)
+        instance_ref = self.db.instance_get(context, instance_uuid)
         if migration_ref['old_instance_type_id'] != \
            migration_ref['new_instance_type_id']:
             instance_type = self.db.instance_type_get(context,
@@ -1011,9 +1002,7 @@ class ComputeManager(manager.SchedulerDependentManager):
                         local_gb=instance_type['local_gb']))
             resize_instance = True
 
-        instance_ref = self.db.instance_get_by_uuid(context,
-                                            instance_ref.uuid)
-
+        instance_ref = self.db.instance_get(context, instance_uuid)
         network_info = self._get_instance_nw_info(context, instance_ref)
         self.driver.finish_migration(context, instance_ref, disk_info,
                                      network_info, resize_instance)
