@@ -270,7 +270,7 @@ class InstanceActions(BASE, NovaBase):
     """Represents a guest VM's actions and results"""
     __tablename__ = "instance_actions"
     id = Column(Integer, primary_key=True)
-    instance_id = Column(Integer, ForeignKey('instances.id'))
+    instance_uuid = Column(String(36), ForeignKey('instances.uuid'))
 
     action = Column(String(255))
     error = Column(Text)
@@ -319,12 +319,15 @@ class Volume(BASE, NovaBase):
     host = Column(String(255))  # , ForeignKey('hosts.id'))
     size = Column(Integer)
     availability_zone = Column(String(255))  # TODO(vish): foreign key?
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=True)
+    instance_uuid = Column(String(36),
+                           ForeignKey('instances.uuid'),
+                           nullable=True)
     instance = relationship(Instance,
                             backref=backref('volumes'),
-                            foreign_keys=instance_id,
-                            primaryjoin='and_(Volume.instance_id==Instance.id,'
-                                             'Volume.deleted==False)')
+                            foreign_keys=instance_uuid,
+                            primaryjoin='and_('
+                                'Volume.instance_uuid==Instance.uuid,'
+                                'Volume.deleted==False)')
     mountpoint = Column(String(255))
     attach_time = Column(String(255))  # TODO(vish): datetime
     status = Column(String(255))  # TODO(vish): enum?
@@ -432,14 +435,15 @@ class BlockDeviceMapping(BASE, NovaBase):
     __tablename__ = "block_device_mapping"
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=False)
+    instance_uuid = Column(String(36),
+                    ForeignKey('instances.uuid'),
+                    nullable=False)
     instance = relationship(Instance,
                             backref=backref('balock_device_mapping'),
-                            foreign_keys=instance_id,
-                            primaryjoin='and_(BlockDeviceMapping.instance_id=='
-                                              'Instance.id,'
-                                              'BlockDeviceMapping.deleted=='
-                                              'False)')
+                            foreign_keys=instance_uuid,
+                            primaryjoin='and_('
+                             'BlockDeviceMapping.instance_uuid==Instance.uuid,'
+                             'BlockDeviceMapping.deleted==False)')
     device_name = Column(String(255), nullable=False)
 
     # default=False for compatibility of the existing code.
@@ -502,7 +506,7 @@ class SecurityGroupInstanceAssociation(BASE, NovaBase):
     __tablename__ = 'security_group_instance_association'
     id = Column(Integer, primary_key=True)
     security_group_id = Column(Integer, ForeignKey('security_groups.id'))
-    instance_id = Column(Integer, ForeignKey('instances.id'))
+    instance_uuid = Column(String(36), ForeignKey('instances.uuid'))
 
 
 class SecurityGroup(BASE, NovaBase):
@@ -523,7 +527,7 @@ class SecurityGroup(BASE, NovaBase):
         'SecurityGroupInstanceAssociation.deleted == False,'
         'SecurityGroup.deleted == False)',
                              secondaryjoin='and_('
-        'SecurityGroupInstanceAssociation.instance_id == Instance.id,'
+        'SecurityGroupInstanceAssociation.instance_uuid == Instance.uuid,'
         # (anthony) the condition below shouldn't be necessary now that the
         # association is being marked as deleted.  However, removing this
         # may cause existing deployments to choke, so I'm leaving it
@@ -591,8 +595,9 @@ class Migration(BASE, NovaBase):
     dest_host = Column(String(255))
     old_instance_type_id = Column(Integer())
     new_instance_type_id = Column(Integer())
-    instance_uuid = Column(String(255), ForeignKey('instances.uuid'),
-            nullable=True)
+    instance_uuid = Column(String(36),
+                           ForeignKey('instances.uuid'),
+                           nullable=True)
     #TODO(_cerberus_): enum
     status = Column(String(255))
 
@@ -642,7 +647,9 @@ class VirtualInterface(BASE, NovaBase):
     network = relationship(Network, backref=backref('virtual_interfaces'))
 
     # TODO(tr3buchet): cut the cord, removed foreign key and backrefs
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=False)
+    instance_uuid = Column(String(36),
+                           ForeignKey('instances.uuid'),
+                           nullable=False)
     instance = relationship(Instance, backref=backref('virtual_interfaces'))
 
     uuid = Column(String(36))
@@ -672,14 +679,16 @@ class FixedIp(BASE, NovaBase):
                                                                  nullable=True)
     virtual_interface = relationship(VirtualInterface,
                                      backref=backref('fixed_ips'))
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=True)
+    instance_uuid = Column(String(36),
+                           ForeignKey('instances.uuid'),
+                           nullable=True)
     instance = relationship(Instance,
                             backref=backref('fixed_ips'),
-                            foreign_keys=instance_id,
+                            foreign_keys=instance_uuid,
                             primaryjoin='and_('
-                                'FixedIp.instance_id == Instance.id,'
+                                'FixedIp.instance_uuid == Instance.uuid,'
                                 'FixedIp.deleted == False)')
-    # associated means that a fixed_ip has its instance_id column set
+    # NOTE: associated means that a fixed_ip has its instance_uuid column set
     # allocated means that a fixed_ip has a its virtual_interface_id column set
     allocated = Column(Boolean, default=False)
     # leased means dhcp bridge has leased the ip
@@ -798,7 +807,7 @@ class Console(BASE, NovaBase):
     __tablename__ = 'consoles'
     id = Column(Integer, primary_key=True)
     instance_name = Column(String(255))
-    instance_id = Column(Integer)
+    instance_uuid = Column(String(36))
     password = Column(String(255))
     port = Column(Integer, nullable=True)
     pool_id = Column(Integer, ForeignKey('console_pools.id'))
@@ -811,12 +820,14 @@ class InstanceMetadata(BASE, NovaBase):
     id = Column(Integer, primary_key=True)
     key = Column(String(255))
     value = Column(String(255))
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=False)
+    instance_uuid = Column(String(36),
+                           ForeignKey('instances.uuid'),
+                           nullable=False)
     instance = relationship(Instance, backref="metadata",
-                            foreign_keys=instance_id,
+                            foreign_keys=instance_uuid,
                             primaryjoin='and_('
-                                'InstanceMetadata.instance_id == Instance.id,'
-                                'InstanceMetadata.deleted == False)')
+                             'InstanceMetadata.instance_uuid == Instance.uuid,'
+                             'InstanceMetadata.deleted == False)')
 
 
 class InstanceTypeExtraSpecs(BASE, NovaBase):
