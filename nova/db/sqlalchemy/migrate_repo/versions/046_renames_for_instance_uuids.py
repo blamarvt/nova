@@ -14,7 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from sqlalchemy import Column, Integer, MetaData, String, Table
+from nova import utils
+
+from sqlalchemy import Column, Integer, MetaData, String, Table, ForeignKey
 
 
 meta = MetaData()
@@ -24,18 +26,38 @@ def upgrade(migrate_engine):
     migrate_engine.echo = True
     meta.bind = migrate_engine
 
-    fixed_ips = Table('fixed_ips', meta, autoload=True,
+    instances = Table('instances', meta, autoload=True,
                       autoload_with=migrate_engine)
 
-    instance_id_column = fixed_ips.c.instance_id
-    instance_id_column.alter(type=String(36)) # No idea why this errors
-    instance_id_column.alter(name='instance_uuid')
+    # generate map of instance ids to uuids, generating them where necessary
+    mapping = {}
+    for instance in migrate_engine.execute(instances.select()):
+        mapping[instance.id] = instance.uuid or utils.gen_uuid()
+
+    table_names = ['fixed_ips']
+
+    for table_name in table_names:
+        # autoload each table
+        table = Table(table_name, meta, autoload=True,
+                      autoload_with=migrate_engine)
+
+        # create instance_uuid column and append to each table
+        table_instance_uuid = Column('instance_uuid',
+                                     String(36),
+                                     ForeignKey('instances.uuid'),
+                                     nullable=True)
+        table_instance_uuid.create(table)
+
+        # iterate over instance ids/uuids and update current table
+        for instance_id, instance_uuid in mapping.iteritems():
+            query = table.update().\
+                          where(table.c.instance_id == instance_id).\
+                          values(instance_uuid = instance_uuid)
+            migrate_engine.execute(query)
+
+        # drop old instance_id column
+        table.c.instance_id.drop()
 
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
-    fixed_ips = Table('fixed_ips', meta, autoload=True,
-                      autoload_with=migrate_engine)
-
-    instance_uuid_column = fixed_ips.c.instance_uuid
-    instance_uuid_column.alter(name='instance_id')

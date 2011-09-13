@@ -166,6 +166,7 @@ class Instance(BASE, NovaBase):
     injected_files = []
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), nullable=False)
 
     @property
     def name(self):
@@ -229,7 +230,6 @@ class Instance(BASE, NovaBase):
     os_type = Column(String(255))
     architecture = Column(String(255))
     vm_mode = Column(String(255))
-    uuid = Column(String(36))
 
     root_device_name = Column(String(255))
     config_drive = Column(String(255))
