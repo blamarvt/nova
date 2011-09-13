@@ -16,7 +16,12 @@
 
 from nova import utils
 
-from sqlalchemy import Column, Integer, MetaData, String, Table, ForeignKey
+from sqlalchemy import Column
+from sqlalchemy import Integer
+from sqlalchemy import MetaData
+from sqlalchemy import String
+from sqlalchemy import Table
+from sqlalchemy import ForeignKey
 
 
 meta = MetaData()
@@ -46,7 +51,7 @@ def upgrade(migrate_engine):
                                      String(36),
                                      ForeignKey('instances.uuid'),
                                      nullable=True)
-        table_instance_uuid.create(table)
+        table.create_column(table_instance_uuid)
 
         # iterate over instance ids/uuids and update current table
         for instance_id, instance_uuid in mapping.iteritems():
