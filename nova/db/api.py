@@ -74,9 +74,9 @@ class NoMoreTargets(exception.Error):
 ###################
 
 
-def service_destroy(context, instance_id):
+def service_destroy(context, instance_uuid):
     """Destroy the service or raise if it does not exist."""
-    return IMPL.service_destroy(context, instance_id)
+    return IMPL.service_destroy(context, instance_uuid)
 
 
 def service_get(context, service_id):
@@ -324,25 +324,25 @@ def migration_get_by_instance_and_status(context, instance_uuid, status):
 ####################
 
 
-def fixed_ip_associate(context, address, instance_id, network_id=None,
+def fixed_ip_associate(context, address, instance_uuid, network_id=None,
                        reserved=False):
     """Associate fixed ip to instance.
 
     Raises if fixed ip is not available.
 
     """
-    return IMPL.fixed_ip_associate(context, address, instance_id, network_id,
+    return IMPL.fixed_ip_associate(context, address, instance_uuid, network_id,
                                    reserved)
 
 
-def fixed_ip_associate_pool(context, network_id, instance_id=None, host=None):
+def fixed_ip_associate_pool(context, network_id, instance_uuid=None, host=None):
     """Find free ip in network and associate it to instance or host.
 
     Raises if one is not available.
 
     """
     return IMPL.fixed_ip_associate_pool(context, network_id,
-                                        instance_id, host)
+                                        instance_uuid, host)
 
 
 def fixed_ip_create(context, values):
@@ -375,9 +375,9 @@ def fixed_ip_get_by_address(context, address):
     return IMPL.fixed_ip_get_by_address(context, address)
 
 
-def fixed_ip_get_by_instance(context, instance_id):
+def fixed_ip_get_by_instance(context, instance_uuid):
     """Get fixed ips by instance or raise if none exist."""
-    return IMPL.fixed_ip_get_by_instance(context, instance_id)
+    return IMPL.fixed_ip_get_by_instance(context, instance_uuid)
 
 
 def fixed_ip_get_by_network_host(context, network_id, host):
@@ -432,16 +432,16 @@ def virtual_interface_get_by_fixed_ip(context, fixed_ip_id):
     return IMPL.virtual_interface_get_by_fixed_ip(context, fixed_ip_id)
 
 
-def virtual_interface_get_by_instance(context, instance_id):
+def virtual_interface_get_by_instance(context, instance_uuid):
     """Gets all virtual_interfaces for instance."""
-    return IMPL.virtual_interface_get_by_instance(context, instance_id)
+    return IMPL.virtual_interface_get_by_instance(context, instance_uuid)
 
 
-def virtual_interface_get_by_instance_and_network(context, instance_id,
+def virtual_interface_get_by_instance_and_network(context, instance_uuid,
                                                            network_id):
     """Gets all virtual interfaces for instance."""
     return IMPL.virtual_interface_get_by_instance_and_network(context,
-                                                              instance_id,
+                                                              instance_uuid,
                                                               network_id)
 
 
@@ -455,9 +455,9 @@ def virtual_interface_delete(context, vif_id):
     return IMPL.virtual_interface_delete(context, vif_id)
 
 
-def virtual_interface_delete_by_instance(context, instance_id):
+def virtual_interface_delete_by_instance(context, instance_uuid):
     """Delete virtual interface records associated with instance."""
-    return IMPL.virtual_interface_delete_by_instance(context, instance_id)
+    return IMPL.virtual_interface_delete_by_instance(context, instance_uuid)
 
 
 ####################
@@ -473,24 +473,19 @@ def instance_data_get_for_project(context, project_id):
     return IMPL.instance_data_get_for_project(context, project_id)
 
 
-def instance_destroy(context, instance_id):
+def instance_destroy(context, instance_uuid):
     """Destroy the instance or raise if it does not exist."""
-    return IMPL.instance_destroy(context, instance_id)
+    return IMPL.instance_destroy(context, instance_uuid)
 
 
-def instance_stop(context, instance_id):
+def instance_stop(context, instance_uuid):
     """Stop the instance or raise if it does not exist."""
-    return IMPL.instance_stop(context, instance_id)
+    return IMPL.instance_stop(context, instance_uuid)
 
 
-def instance_get_by_uuid(context, uuid):
+def instance_get(context, instance_uuid):
     """Get an instance or raise if it does not exist."""
-    return IMPL.instance_get_by_uuid(context, uuid)
-
-
-def instance_get(context, instance_id):
-    """Get an instance or raise if it does not exist."""
-    return IMPL.instance_get(context, instance_id)
+    return IMPL.instance_get(context, instance_uuid)
 
 
 def instance_get_all(context):
@@ -549,18 +544,18 @@ def instance_get_by_fixed_ipv6(context, address):
     return IMPL.instance_get_by_fixed_ipv6(context, address)
 
 
-def instance_get_fixed_addresses(context, instance_id):
+def instance_get_fixed_addresses(context, instance_uuid):
     """Get the fixed ip address of an instance."""
-    return IMPL.instance_get_fixed_addresses(context, instance_id)
+    return IMPL.instance_get_fixed_addresses(context, instance_uuid)
 
 
-def instance_get_fixed_addresses_v6(context, instance_id):
-    return IMPL.instance_get_fixed_addresses_v6(context, instance_id)
+def instance_get_fixed_addresses_v6(context, instance_uuid):
+    return IMPL.instance_get_fixed_addresses_v6(context, instance_uuid)
 
 
-def instance_get_floating_address(context, instance_id):
+def instance_get_floating_address(context, instance_uuid):
     """Get the first floating ip address of an instance."""
-    return IMPL.instance_get_floating_address(context, instance_id)
+    return IMPL.instance_get_floating_address(context, instance_uuid)
 
 
 def instance_get_project_vpn(context, project_id):
@@ -568,29 +563,29 @@ def instance_get_project_vpn(context, project_id):
     return IMPL.instance_get_project_vpn(context, project_id)
 
 
-def instance_set_state(context, instance_id, state, description=None):
+def instance_set_state(context, instance_uuid, state, description=None):
     """Set the state of an instance."""
-    return IMPL.instance_set_state(context, instance_id, state, description)
+    return IMPL.instance_set_state(context, instance_uuid, state, description)
 
 
-def instance_update(context, instance_id, values):
+def instance_update(context, instance_uuid, values):
     """Set the given properties on an instance and update it.
 
     Raises NotFound if instance does not exist.
 
     """
-    return IMPL.instance_update(context, instance_id, values)
+    return IMPL.instance_update(context, instance_uuid, values)
 
 
-def instance_add_security_group(context, instance_id, security_group_id):
+def instance_add_security_group(context, instance_uuid, security_group_id):
     """Associate the given security group with the given instance."""
-    return IMPL.instance_add_security_group(context, instance_id,
+    return IMPL.instance_add_security_group(context, instance_uuid,
                                             security_group_id)
 
 
-def instance_remove_security_group(context, instance_id, security_group_id):
+def instance_remove_security_group(context, instance_uuid, security_group_id):
     """Disassociate the given security group from the given instance."""
-    return IMPL.instance_remove_security_group(context, instance_id,
+    return IMPL.instance_remove_security_group(context, instance_uuid,
                                             security_group_id)
 
 
@@ -599,9 +594,9 @@ def instance_action_create(context, values):
     return IMPL.instance_action_create(context, values)
 
 
-def instance_get_actions(context, instance_id):
+def instance_get_actions(context, instance_uuid):
     """Get instance actions by instance id."""
-    return IMPL.instance_get_actions(context, instance_id)
+    return IMPL.instance_get_actions(context, instance_uuid)
 
 
 ###################
@@ -732,14 +727,14 @@ def network_get_by_cidr(context, cidr):
     return IMPL.network_get_by_cidr(context, cidr)
 
 
-def network_get_by_instance(context, instance_id):
+def network_get_by_instance(context, instance_uuid):
     """Get a network by instance id or raise if it does not exist."""
-    return IMPL.network_get_by_instance(context, instance_id)
+    return IMPL.network_get_by_instance(context, instance_uuid)
 
 
-def network_get_all_by_instance(context, instance_id):
+def network_get_all_by_instance(context, instance_uuid):
     """Get all networks by instance id or raise if none exist."""
-    return IMPL.network_get_all_by_instance(context, instance_id)
+    return IMPL.network_get_all_by_instance(context, instance_uuid)
 
 
 def network_get_all_by_host(context, host):
@@ -891,9 +886,9 @@ def volume_allocate_iscsi_target(context, volume_id, host):
     return IMPL.volume_allocate_iscsi_target(context, volume_id, host)
 
 
-def volume_attached(context, volume_id, instance_id, mountpoint):
+def volume_attached(context, volume_id, instance_uuid, mountpoint):
     """Ensure that a volume is set as attached."""
-    return IMPL.volume_attached(context, volume_id, instance_id, mountpoint)
+    return IMPL.volume_attached(context, volume_id, instance_uuid, mountpoint)
 
 
 def volume_create(context, values):
@@ -931,9 +926,9 @@ def volume_get_all_by_host(context, host):
     return IMPL.volume_get_all_by_host(context, host)
 
 
-def volume_get_all_by_instance(context, instance_id):
+def volume_get_all_by_instance(context, instance_uuid):
     """Get all volumes belonging to a instance."""
-    return IMPL.volume_get_all_by_instance(context, instance_id)
+    return IMPL.volume_get_all_by_instance(context, instance_uuid)
 
 
 def volume_get_all_by_project(context, project_id):
@@ -1026,9 +1021,9 @@ def block_device_mapping_update_or_create(context, values):
     return IMPL.block_device_mapping_update_or_create(context, values)
 
 
-def block_device_mapping_get_all_by_instance(context, instance_id):
+def block_device_mapping_get_all_by_instance(context, instance_uuid):
     """Get all block device mapping belonging to a instance"""
-    return IMPL.block_device_mapping_get_all_by_instance(context, instance_id)
+    return IMPL.block_device_mapping_get_all_by_instance(context, instance_uuid)
 
 
 def block_device_mapping_destroy(context, bdm_id):
@@ -1036,11 +1031,11 @@ def block_device_mapping_destroy(context, bdm_id):
     return IMPL.block_device_mapping_destroy(context, bdm_id)
 
 
-def block_device_mapping_destroy_by_instance_and_volume(context, instance_id,
+def block_device_mapping_destroy_by_instance_and_volume(context, instance_uuid,
                                                         volume_id):
     """Destroy the block device mapping or raise if it does not exist."""
     return IMPL.block_device_mapping_destroy_by_instance_and_volume(
-        context, instance_id, volume_id)
+        context, instance_uuid, volume_id)
 
 
 ####################
@@ -1066,9 +1061,9 @@ def security_group_get_by_project(context, project_id):
     return IMPL.security_group_get_by_project(context, project_id)
 
 
-def security_group_get_by_instance(context, instance_id):
+def security_group_get_by_instance(context, instance_uuid):
     """Get security groups to which the instance is assigned."""
-    return IMPL.security_group_get_by_instance(context, instance_id)
+    return IMPL.security_group_get_by_instance(context, instance_uuid)
 
 
 def security_group_exists(context, project_id, group_name):
@@ -1309,19 +1304,19 @@ def console_delete(context, console_id):
     return IMPL.console_delete(context, console_id)
 
 
-def console_get_by_pool_instance(context, pool_id, instance_id):
+def console_get_by_pool_instance(context, pool_id, instance_uuid):
     """Get console entry for a given instance and pool."""
-    return IMPL.console_get_by_pool_instance(context, pool_id, instance_id)
+    return IMPL.console_get_by_pool_instance(context, pool_id, instance_uuid)
 
 
-def console_get_all_by_instance(context, instance_id):
+def console_get_all_by_instance(context, instance_uuid):
     """Get consoles for a given instance."""
-    return IMPL.console_get_all_by_instance(context, instance_id)
+    return IMPL.console_get_all_by_instance(context, instance_uuid)
 
 
-def console_get(context, console_id, instance_id=None):
+def console_get(context, console_id, instance_uuid=None):
     """Get a specific console (possibly on a given instance)."""
-    return IMPL.console_get(context, console_id, instance_id)
+    return IMPL.console_get(context, console_id, instance_uuid)
 
 
     ##################
@@ -1397,19 +1392,19 @@ def zone_get_all(context):
 ####################
 
 
-def instance_metadata_get(context, instance_id):
+def instance_metadata_get(context, instance_uuid):
     """Get all metadata for an instance."""
-    return IMPL.instance_metadata_get(context, instance_id)
+    return IMPL.instance_metadata_get(context, instance_uuid)
 
 
-def instance_metadata_delete(context, instance_id, key):
+def instance_metadata_delete(context, instance_uuid, key):
     """Delete the given metadata item."""
-    IMPL.instance_metadata_delete(context, instance_id, key)
+    IMPL.instance_metadata_delete(context, instance_uuid, key)
 
 
-def instance_metadata_update(context, instance_id, metadata, delete):
+def instance_metadata_update(context, instance_uuid, metadata, delete):
     """Update metadata if it exists, otherwise create it."""
-    IMPL.instance_metadata_update(context, instance_id, metadata, delete)
+    IMPL.instance_metadata_update(context, instance_uuid, metadata, delete)
 
 
 ####################

@@ -332,7 +332,7 @@ class FlagNotSet(NotFound):
 
 
 class InstanceNotFound(NotFound):
-    message = _("Instance %(instance_id)s could not be found.")
+    message = _("Instance %(instance_uuid)s could not be found.")
 
 
 class VolumeNotFound(NotFound):
@@ -340,7 +340,7 @@ class VolumeNotFound(NotFound):
 
 
 class VolumeNotFoundForInstance(VolumeNotFound):
-    message = _("Volume not found for instance %(instance_id)s.")
+    message = _("Volume not found for instance %(instance_uuid)s.")
 
 
 class VolumeMetadataNotFound(NotFound):
@@ -444,7 +444,7 @@ class NetworkNotFoundForCidr(NetworkNotFound):
 
 
 class NetworkNotFoundForInstance(NetworkNotFound):
-    message = _("Network could not be found for instance %(instance_id)s.")
+    message = _("Network could not be found for instance %(instance_uuid)s.")
 
 
 class NoNetworksFound(NotFound):
@@ -629,11 +629,11 @@ class ConsoleNotFound(NotFound):
 
 
 class ConsoleNotFoundForInstance(ConsoleNotFound):
-    message = _("Console for instance %(instance_id)s could not be found.")
+    message = _("Console for instance %(instance_uuid)s could not be found.")
 
 
 class ConsoleNotFoundInPoolForInstance(ConsoleNotFound):
-    message = _("Console for instance %(instance_id)s "
+    message = _("Console for instance %(instance_uuid)s "
                 "in pool %(pool_id)s could not be found.")
 
 
@@ -672,7 +672,7 @@ class SchedulerWeightFlagNotFound(NotFound):
 
 
 class InstanceMetadataNotFound(NotFound):
-    message = _("Instance %(instance_id)s has no metadata with "
+    message = _("Instance %(instance_uuid)s has no metadata with "
                 "key %(metadata_key)s.")
 
 

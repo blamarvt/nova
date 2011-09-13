@@ -123,13 +123,13 @@ def require_context(f):
 def require_instance_exists(f):
     """Decorator to require the specified instance to exist.
 
-    Requres the wrapped function to use context and instance_id as
+    Requres the wrapped function to use context and instance_uuid as
     their first two arguments.
     """
 
-    def wrapper(context, instance_id, *args, **kwargs):
-        db.api.instance_get(context, instance_id)
-        return f(context, instance_id, *args, **kwargs)
+    def wrapper(context, instance_uuid, *args, **kwargs):
+        db.api.instance_get(context, instance_uuid)
+        return f(context, instance_uuid, *args, **kwargs)
     wrapper.__name__ = f.__name__
     return wrapper
 
@@ -669,7 +669,7 @@ def floating_ip_update(context, address, values):
 
 
 @require_admin_context
-def fixed_ip_associate(context, address, instance_id, network_id=None,
+def fixed_ip_associate(context, address, instance_uuid, network_id=None,
                        reserved=False):
     """Keyword arguments:
     reserved -- should be a boolean value(True or False), exact value will be
@@ -699,14 +699,14 @@ def fixed_ip_associate(context, address, instance_id, network_id=None,
                                            network_id,
                                            session=session)
         fixed_ip_ref.instance = instance_get(context,
-                                             instance_id,
+                                             instance_uuid,
                                              session=session)
         session.add(fixed_ip_ref)
     return fixed_ip_ref['address']
 
 
 @require_admin_context
-def fixed_ip_associate_pool(context, network_id, instance_id=None, host=None):
+def fixed_ip_associate_pool(context, network_id, instance_uuid=None, host=None):
     session = get_session()
     with session.begin():
         network_or_none = or_(models.FixedIp.network_id == network_id,
@@ -727,9 +727,9 @@ def fixed_ip_associate_pool(context, network_id, instance_id=None, host=None):
             fixed_ip_ref.network = network_get(context,
                                            network_id,
                                            session=session)
-        if instance_id:
+        if instance_uuid:
             fixed_ip_ref.instance = instance_get(context,
-                                                 instance_id,
+                                                 instance_uuid,
                                                  session=session)
         if host:
             fixed_ip_ref.host = host
@@ -765,9 +765,9 @@ def fixed_ip_disassociate_all_by_timeout(_context, host, time):
     result = session.query(models.FixedIp).\
                      filter(models.FixedIp.network_id.in_(inner_q)).\
                      filter(models.FixedIp.updated_at < time).\
-                     filter(models.FixedIp.instance_id != None).\
+                     filter(models.FixedIp.instance_uuid != None).\
                      filter_by(allocated=False).\
-                     update({'instance_id': None,
+                     update({'instance_uuid': None,
                              'leased': False,
                              'updated_at': utils.utcnow()},
                              synchronize_session='fetch')
@@ -825,15 +825,15 @@ def fixed_ip_get_by_address(context, address, session=None):
 
 
 @require_context
-def fixed_ip_get_by_instance(context, instance_id):
+def fixed_ip_get_by_instance(context, instance_uuid):
     session = get_session()
     rv = session.query(models.FixedIp).\
                  options(joinedload('floating_ips')).\
-                 filter_by(instance_id=instance_id).\
+                 filter_by(instance_uuid=instance_uuid).\
                  filter_by(deleted=False).\
                  all()
     if not rv:
-        raise exception.FixedIpNotFoundForInstance(instance_id=instance_id)
+        raise exception.FixedIpNotFoundForInstance(instance_uuid=instance_uuid)
     return rv
 
 
@@ -983,14 +983,14 @@ def virtual_interface_get_by_fixed_ip(context, fixed_ip_id):
 
 @require_context
 @require_instance_exists
-def virtual_interface_get_by_instance(context, instance_id):
+def virtual_interface_get_by_instance(context, instance_uuid):
     """Gets all virtual interfaces for instance.
 
-    :param instance_id: = id of the instance to retreive vifs for
+    :param instance_uuid: = uuid of the instance to retreive vifs for
     """
     session = get_session()
     vif_refs = session.query(models.VirtualInterface).\
-                       filter_by(instance_id=instance_id).\
+                       filter_by(instance_uuid=instance_uuid).\
                        options(joinedload('network')).\
                        options(joinedload('instance')).\
                        options(joinedload('fixed_ips')).\
@@ -999,12 +999,13 @@ def virtual_interface_get_by_instance(context, instance_id):
 
 
 @require_context
-def virtual_interface_get_by_instance_and_network(context, instance_id,
-                                                           network_id):
+def virtual_interface_get_by_instance_and_network(context,
+                                                  instance_uuid,
+                                                  network_id):
     """Gets virtual interface for instance that's associated with network."""
     session = get_session()
     vif_ref = session.query(models.VirtualInterface).\
-                      filter_by(instance_id=instance_id).\
+                      filter_by(instance_uuid=instance_uuid).\
                       filter_by(network_id=network_id).\
                       options(joinedload('network')).\
                       options(joinedload('instance')).\
@@ -1042,13 +1043,13 @@ def virtual_interface_delete(context, vif_id):
 
 
 @require_context
-def virtual_interface_delete_by_instance(context, instance_id):
+def virtual_interface_delete_by_instance(context, instance_uuid):
     """Delete virtual interface records that are associated
-    with the instance given by instance_id.
+    with the instance given by instance_uuid.
 
-    :param instance_id: = id of instance
+    :param instance_uuid: = id of instance
     """
-    vif_refs = virtual_interface_get_by_instance(context, instance_id)
+    vif_refs = virtual_interface_get_by_instance(context, instance_uuid)
     for vif_ref in vif_refs:
         virtual_interface_delete(context, vif_ref['id'])
 
@@ -1101,86 +1102,71 @@ def instance_data_get_for_project(context, project_id):
 
 
 @require_context
-def instance_destroy(context, instance_id):
+def instance_destroy(context, instance_uuid):
     session = get_session()
     with session.begin():
         session.query(models.Instance).\
-                filter_by(id=instance_id).\
+                filter_by(uuid=instance_uuid).\
                 update({'deleted': True,
                         'deleted_at': utils.utcnow(),
                         'updated_at': literal_column('updated_at')})
         session.query(models.SecurityGroupInstanceAssociation).\
-                filter_by(instance_id=instance_id).\
+                filter_by(instance_uuid=instance_uuid).\
                 update({'deleted': True,
                         'deleted_at': utils.utcnow(),
                         'updated_at': literal_column('updated_at')})
         session.query(models.InstanceMetadata).\
-                filter_by(instance_id=instance_id).\
+                filter_by(instance_uuid=instance_uuid).\
                 update({'deleted': True,
                         'deleted_at': utils.utcnow(),
                         'updated_at': literal_column('updated_at')})
 
 
 @require_context
-def instance_stop(context, instance_id):
+def instance_stop(context, instance_uuid):
     session = get_session()
     with session.begin():
         session.query(models.Instance).\
-                filter_by(id=instance_id).\
+                filter_by(uuid=instance_uuid).\
                 update({'host': None,
                         'vm_state': vm_states.STOPPED,
                         'task_state': None,
                         'updated_at': literal_column('updated_at')})
         session.query(models.SecurityGroupInstanceAssociation).\
-                filter_by(instance_id=instance_id).\
+                filter_by(instance_uuid=instance_uuid).\
                 update({'updated_at': literal_column('updated_at')})
         session.query(models.InstanceMetadata).\
-                filter_by(instance_id=instance_id).\
+                filter_by(instance_uuid=instance_uuid).\
                 update({'updated_at': literal_column('updated_at')})
 
 
 @require_context
-def instance_get_by_uuid(context, uuid, session=None):
-    partial = _build_instance_get(context, session=session)
-    result = partial.filter_by(uuid=uuid)
-    result = result.first()
-    if not result:
-        # FIXME(sirp): it would be nice if InstanceNotFound would accept a
-        # uuid parameter as well
-        raise exception.InstanceNotFound(instance_id=uuid)
-    return result
-
-
-@require_context
-def instance_get(context, instance_id, session=None):
-    partial = _build_instance_get(context, session=session)
-    result = partial.filter_by(id=instance_id)
-    result = result.first()
-    if not result:
-        raise exception.InstanceNotFound(instance_id=instance_id)
-    return result
-
-
-@require_context
-def _build_instance_get(context, session=None):
+def instance_get(context, instance_uuid, session=None):
     if not session:
         session = get_session()
 
-    partial = session.query(models.Instance).\
-                     options(joinedload_all('fixed_ips.floating_ips')).\
-                     options(joinedload_all('fixed_ips.network')).\
-                     options(joinedload('virtual_interfaces')).\
-                     options(joinedload_all('security_groups.rules')).\
-                     options(joinedload('volumes')).\
-                     options(joinedload('metadata')).\
-                     options(joinedload('instance_type'))
+    query = session.query(models.Instance).\
+                    options(joinedload_all('fixed_ips.floating_ips')).\
+                    options(joinedload_all('fixed_ips.network')).\
+                    options(joinedload('virtual_interfaces')).\
+                    options(joinedload_all('security_groups.rules')).\
+                    options(joinedload('volumes')).\
+                    options(joinedload('metadata')).\
+                    options(joinedload('instance_type')).\
+                    filter_by(uuid=instance_uuid)
 
     if is_admin_context(context):
-        partial = partial.filter_by(deleted=can_read_deleted(context))
+        query = query.filter_by(deleted=can_read_deleted(context))
     elif is_user_context(context):
-        partial = partial.filter_by(project_id=context.project_id).\
+        query = query.filter_by(project_id=context.project_id).\
                         filter_by(deleted=False)
-    return partial
+
+    result = query.first()
+
+    if not result:
+        raise exception.InstanceNotFound(instance_uuid=instance_uuid)
+
+    return result
 
 
 @require_admin_context
@@ -1456,9 +1442,9 @@ def instance_get_by_fixed_ipv6(context, address):
     # get virtual interface
     vif_ref = virtual_interface_get_by_address(context, mac)
 
-    # look up instance based on instance_id from vif row
+    # look up instance based on instance_uuid from vif row
     result = session.query(models.Instance).\
-                     filter_by(id=vif_ref['instance_id'])
+                     filter_by(uuid=vif_ref['instance_uuid'])
     return result
 
 
@@ -1479,26 +1465,26 @@ def instance_get_project_vpn(context, project_id):
 
 
 @require_context
-def instance_get_fixed_addresses(context, instance_id):
+def instance_get_fixed_addresses(context, instance_uuid):
     session = get_session()
     with session.begin():
-        instance_ref = instance_get(context, instance_id, session=session)
+        instance_ref = instance_get(context, instance_uuid, session=session)
         try:
-            fixed_ips = fixed_ip_get_by_instance(context, instance_id)
+            fixed_ips = fixed_ip_get_by_instance(context, instance_uuid)
         except exception.NotFound:
             return []
         return [fixed_ip.address for fixed_ip in fixed_ips]
 
 
 @require_context
-def instance_get_fixed_addresses_v6(context, instance_id):
+def instance_get_fixed_addresses_v6(context, instance_uuid):
     session = get_session()
     with session.begin():
         # get instance
-        instance_ref = instance_get(context, instance_id, session=session)
+        instance_ref = instance_get(context, instance_uuid, session=session)
         # assume instance has 1 mac for each network associated with it
         # get networks associated with instance
-        network_refs = network_get_all_by_instance(context, instance_id)
+        network_refs = network_get_all_by_instance(context, instance_uuid)
         # compile a list of cidr_v6 prefixes sorted by network id
         prefixes = [ref.cidr_v6 for ref in
                 sorted(network_refs, key=lambda ref: ref.id)]
@@ -1516,8 +1502,8 @@ def instance_get_fixed_addresses_v6(context, instance_id):
 
 
 @require_context
-def instance_get_floating_address(context, instance_id):
-    fixed_ip_refs = fixed_ip_get_by_instance(context, instance_id)
+def instance_get_floating_address(context, instance_uuid):
+    fixed_ip_refs = fixed_ip_get_by_instance(context, instance_uuid)
     if not fixed_ip_refs:
         return None
     # NOTE(tr3buchet): this only gets the first fixed_ip
@@ -1529,30 +1515,26 @@ def instance_get_floating_address(context, instance_id):
 
 
 @require_context
-def instance_update(context, instance_id, values):
+def instance_update(context, instance_uuid, values):
     session = get_session()
     metadata = values.get('metadata')
     if metadata is not None:
         instance_metadata_update(context,
-                                 instance_id,
+                                 instance_uuid,
                                  values.pop('metadata'),
                                  delete=True)
     with session.begin():
-        if utils.is_uuid_like(instance_id):
-            instance_ref = instance_get_by_uuid(context, instance_id,
-                                                session=session)
-        else:
-            instance_ref = instance_get(context, instance_id, session=session)
+        instance_ref = instance_get(context, instance_uuid, session=session)
         instance_ref.update(values)
         instance_ref.save(session=session)
         return instance_ref
 
 
-def instance_add_security_group(context, instance_id, security_group_id):
+def instance_add_security_group(context, instance_uuid, security_group_id):
     """Associate the given security group with the given instance"""
     session = get_session()
     with session.begin():
-        instance_ref = instance_get(context, instance_id, session=session)
+        instance_ref = instance_get(context, instance_uuid, session=session)
         security_group_ref = security_group_get(context,
                                                 security_group_id,
                                                 session=session)
@@ -1561,12 +1543,12 @@ def instance_add_security_group(context, instance_id, security_group_id):
 
 
 @require_context
-def instance_remove_security_group(context, instance_id, security_group_id):
+def instance_remove_security_group(context, instance_uuid, security_group_id):
     """Disassociate the given security group from the given instance"""
     session = get_session()
 
     session.query(models.SecurityGroupInstanceAssociation).\
-                filter_by(instance_id=instance_id).\
+                filter_by(instance_uuid=instance_uuid).\
                 filter_by(security_group_id=security_group_id).\
                 update({'deleted': True,
                         'deleted_at': utils.utcnow(),
@@ -1586,17 +1568,13 @@ def instance_action_create(context, values):
 
 
 @require_admin_context
-def instance_get_actions(context, instance_id):
-    """Return the actions associated to the given instance id"""
+def instance_get_actions(context, instance_uuid):
+    """Return the actions associated to the given instance uuid"""
     session = get_session()
 
-    if utils.is_uuid_like(instance_id):
-        instance = instance_get_by_uuid(context, instance_id, session)
-        instance_id = instance.id
-
     return session.query(models.InstanceActions).\
-        filter_by(instance_id=instance_id).\
-       all()
+                   filter_by(instance_uuid=instance_uuid).\
+                   all()
 
 
 ###################
@@ -1859,7 +1837,7 @@ def network_get_associated_fixed_ips(context, network_id):
     return session.query(models.FixedIp).\
                    options(joinedload_all('instance')).\
                    filter_by(network_id=network_id).\
-                   filter(models.FixedIp.instance_id != None).\
+                   filter(models.FixedIp.instance_uuid != None).\
                    filter(models.FixedIp.virtual_interface_id != None).\
                    filter_by(deleted=False).\
                    all()
@@ -1906,32 +1884,32 @@ def network_get_by_cidr(context, cidr):
 
 
 @require_admin_context
-def network_get_by_instance(_context, instance_id):
+def network_get_by_instance(_context, instance_uuid):
     # note this uses fixed IP to get to instance
     # only works for networks the instance has an IP from
     session = get_session()
     rv = session.query(models.Network).\
                  filter_by(deleted=False).\
                  join(models.Network.fixed_ips).\
-                 filter_by(instance_id=instance_id).\
+                 filter_by(instance_uuid=instance_uuid).\
                  filter_by(deleted=False).\
                  first()
     if not rv:
-        raise exception.NetworkNotFoundForInstance(instance_id=instance_id)
+        raise exception.NetworkNotFoundForInstance(instance_uuid=instance_uuid)
     return rv
 
 
 @require_admin_context
-def network_get_all_by_instance(_context, instance_id):
+def network_get_all_by_instance(_context, instance_uuid):
     session = get_session()
     rv = session.query(models.Network).\
                  filter_by(deleted=False).\
                  join(models.Network.fixed_ips).\
-                 filter_by(instance_id=instance_id).\
+                 filter_by(instance_uuid=instance_uuid).\
                  filter_by(deleted=False).\
                  all()
     if not rv:
-        raise exception.NetworkNotFoundForInstance(instance_id=instance_id)
+        raise exception.NetworkNotFoundForInstance(instance_uuid=instance_uuid)
     return rv
 
 
@@ -2189,15 +2167,14 @@ def volume_allocate_iscsi_target(context, volume_id, host):
 
 
 @require_admin_context
-def volume_attached(context, volume_id, instance_id, mountpoint):
+def volume_attached(context, volume_id, instance_uuid, mountpoint):
     session = get_session()
     with session.begin():
         volume_ref = volume_get(context, volume_id, session=session)
         volume_ref['status'] = 'in-use'
         volume_ref['mountpoint'] = mountpoint
         volume_ref['attach_status'] = 'attached'
-        volume_ref.instance = instance_get(context, instance_id,
-                                           session=session)
+        volume_ref.instance = instance_get(context, instance_uuid, session)
         volume_ref.save(session=session)
 
 
@@ -2313,16 +2290,16 @@ def volume_get_all_by_host(context, host):
 
 
 @require_admin_context
-def volume_get_all_by_instance(context, instance_id):
+def volume_get_all_by_instance(context, instance_uuid):
     session = get_session()
     result = session.query(models.Volume).\
                      options(joinedload('volume_metadata')).\
                      options(joinedload('volume_type')).\
-                     filter_by(instance_id=instance_id).\
+                     filter_by(instance_uuid=instance_uuid).\
                      filter_by(deleted=False).\
                      all()
     if not result:
-        raise exception.VolumeNotFoundForInstance(instance_id=instance_id)
+        raise exception.VolumeNotFoundForInstance(instance_uuid=instance_uuid)
     return result
 
 
@@ -2597,7 +2574,7 @@ def block_device_mapping_update_or_create(context, values):
     session = get_session()
     with session.begin():
         result = session.query(models.BlockDeviceMapping).\
-                 filter_by(instance_id=values['instance_id']).\
+                 filter_by(instance_uuid=values['instance_uuid']).\
                  filter_by(device_name=values['device_name']).\
                  filter_by(deleted=False).\
                  first()
@@ -2614,7 +2591,7 @@ def block_device_mapping_update_or_create(context, values):
         if (virtual_name is not None and
             block_device.is_swap_or_ephemeral(virtual_name)):
             session.query(models.BlockDeviceMapping).\
-            filter_by(instance_id=values['instance_id']).\
+            filter_by(instance_uuid=values['instance_uuid']).\
             filter_by(virtual_name=virtual_name).\
             filter(models.BlockDeviceMapping.device_name !=
                    values['device_name']).\
@@ -2624,10 +2601,10 @@ def block_device_mapping_update_or_create(context, values):
 
 
 @require_context
-def block_device_mapping_get_all_by_instance(context, instance_id):
+def block_device_mapping_get_all_by_instance(context, instance_uuid):
     session = get_session()
     result = session.query(models.BlockDeviceMapping).\
-             filter_by(instance_id=instance_id).\
+             filter_by(instance_uuid=instance_uuid).\
              filter_by(deleted=False).\
              all()
     if not result:
@@ -2647,12 +2624,12 @@ def block_device_mapping_destroy(context, bdm_id):
 
 
 @require_context
-def block_device_mapping_destroy_by_instance_and_volume(context, instance_id,
+def block_device_mapping_destroy_by_instance_and_volume(context, instance_uuid,
                                                         volume_id):
     session = get_session()
     with session.begin():
         session.query(models.BlockDeviceMapping).\
-        filter_by(instance_id=instance_id).\
+        filter_by(instance_uuid=instance_uuid).\
         filter_by(volume_id=volume_id).\
         filter_by(deleted=False).\
         update({'deleted': True,
@@ -2724,13 +2701,13 @@ def security_group_get_by_project(context, project_id):
 
 
 @require_context
-def security_group_get_by_instance(context, instance_id):
+def security_group_get_by_instance(context, instance_uuid):
     session = get_session()
     return session.query(models.SecurityGroup).\
                    filter_by(deleted=False).\
                    options(joinedload_all('rules')).\
                    join(models.SecurityGroup.instances).\
-                   filter_by(id=instance_id).\
+                   filter_by(uuid=instance_uuid).\
                    filter_by(deleted=False).\
                    all()
 
@@ -3189,7 +3166,7 @@ def migration_get_by_instance_and_status(context, instance_uuid, status):
                      filter_by(instance_uuid=instance_uuid).\
                      filter_by(status=status).first()
     if not result:
-        raise exception.MigrationNotFoundByStatus(instance_id=instance_uuid,
+        raise exception.MigrationNotFoundByStatus(instance_uuid=instance_uuid,
                                                   status=status)
     return result
 
@@ -3259,41 +3236,43 @@ def console_delete(context, console_id):
                 delete()
 
 
-def console_get_by_pool_instance(context, pool_id, instance_id):
+def console_get_by_pool_instance(context, pool_id, instance_uuid):
     session = get_session()
     result = session.query(models.Console).\
                    filter_by(pool_id=pool_id).\
-                   filter_by(instance_id=instance_id).\
+                   filter_by(instance_uuid=instance_uuid).\
                    options(joinedload('pool')).\
                    first()
     if not result:
-        raise exception.ConsoleNotFoundInPoolForInstance(pool_id=pool_id,
-                                                 instance_id=instance_id)
+        params = {'pool_id': pool_id, 'instance_uuid': instance_uuid}
+        raise exception.ConsoleNotFoundInPoolForInstance(**params)
     return result
 
 
-def console_get_all_by_instance(context, instance_id):
+def console_get_all_by_instance(context, instance_uuid):
     session = get_session()
     results = session.query(models.Console).\
-                   filter_by(instance_id=instance_id).\
-                   options(joinedload('pool')).\
-                   all()
+                            filter_by(instance_uuid=instance_uuid).\
+                            options(joinedload('pool')).\
+                            all()
     return results
 
 
-def console_get(context, console_id, instance_id=None):
+def console_get(context, console_id, instance_uuid=None):
     session = get_session()
     query = session.query(models.Console).\
                     filter_by(id=console_id)
-    if instance_id:
-        query = query.filter_by(instance_id=instance_id)
+    if instance_uuid:
+        query = query.filter_by(instance_uuid=instance_uuid)
     result = query.options(joinedload('pool')).first()
     if not result:
-        if instance_id:
-            raise exception.ConsoleNotFoundForInstance(console_id=console_id,
-                                                       instance_id=instance_id)
-        else:
-            raise exception.ConsoleNotFound(console_id=console_id)
+        params = {'console_id': console_id}
+        if not instance_uuid:
+            raise exception.ConsoleNotFound(**params)
+
+        params['instance_uuid'] = instance_uuid
+        raise exception.ConsoleNotFoundForInstance(**params)
+
     return result
 
 
@@ -3496,11 +3475,11 @@ def zone_get_all(context):
 
 @require_context
 @require_instance_exists
-def instance_metadata_get(context, instance_id):
+def instance_metadata_get(context, instance_uuid):
     session = get_session()
 
     meta_results = session.query(models.InstanceMetadata).\
-                    filter_by(instance_id=instance_id).\
+                    filter_by(instance_uuid=instance_uuid).\
                     filter_by(deleted=False).\
                     all()
 
@@ -3512,10 +3491,10 @@ def instance_metadata_get(context, instance_id):
 
 @require_context
 @require_instance_exists
-def instance_metadata_delete(context, instance_id, key):
+def instance_metadata_delete(context, instance_uuid, key):
     session = get_session()
     session.query(models.InstanceMetadata).\
-        filter_by(instance_id=instance_id).\
+        filter_by(instance_uuid=instance_uuid).\
         filter_by(key=key).\
         filter_by(deleted=False).\
         update({'deleted': True,
@@ -3525,10 +3504,10 @@ def instance_metadata_delete(context, instance_id, key):
 
 @require_context
 @require_instance_exists
-def instance_metadata_delete_all(context, instance_id):
+def instance_metadata_delete_all(context, instance_uuid):
     session = get_session()
     session.query(models.InstanceMetadata).\
-        filter_by(instance_id=instance_id).\
+        filter_by(instance_uuid=instance_uuid).\
         filter_by(deleted=False).\
         update({'deleted': True,
                 'deleted_at': utils.utcnow(),
@@ -3537,33 +3516,33 @@ def instance_metadata_delete_all(context, instance_id):
 
 @require_context
 @require_instance_exists
-def instance_metadata_get_item(context, instance_id, key, session=None):
+def instance_metadata_get_item(context, instance_uuid, key, session=None):
     if not session:
         session = get_session()
 
     meta_result = session.query(models.InstanceMetadata).\
-                    filter_by(instance_id=instance_id).\
+                    filter_by(instance_uuid=instance_uuid).\
                     filter_by(key=key).\
                     filter_by(deleted=False).\
                     first()
 
     if not meta_result:
         raise exception.InstanceMetadataNotFound(metadata_key=key,
-                                                 instance_id=instance_id)
+                                                 instance_uuid=instance_uuid)
     return meta_result
 
 
 @require_context
 @require_instance_exists
-def instance_metadata_update(context, instance_id, metadata, delete):
+def instance_metadata_update(context, instance_uuid, metadata, delete):
     session = get_session()
 
     # Set existing metadata to deleted if delete argument is True
     if delete:
-        original_metadata = instance_metadata_get(context, instance_id)
+        original_metadata = instance_metadata_get(context, instance_uuid)
         for meta_key, meta_value in original_metadata.iteritems():
             if meta_key not in metadata:
-                meta_ref = instance_metadata_get_item(context, instance_id,
+                meta_ref = instance_metadata_get_item(context, instance_uuid,
                                                       meta_key, session)
                 meta_ref.update({'deleted': True})
                 meta_ref.save(session=session)
@@ -3577,11 +3556,11 @@ def instance_metadata_update(context, instance_id, metadata, delete):
         item = {"value": meta_value}
 
         try:
-            meta_ref = instance_metadata_get_item(context, instance_id,
+            meta_ref = instance_metadata_get_item(context, instance_uuid,
                                                   meta_key, session)
         except exception.InstanceMetadataNotFound, e:
             meta_ref = models.InstanceMetadata()
-            item.update({"key": meta_key, "instance_id": instance_id})
+            item.update({"key": meta_key, "instance_uuid": instance_uuid})
 
         meta_ref.update(item)
         meta_ref.save(session=session)
