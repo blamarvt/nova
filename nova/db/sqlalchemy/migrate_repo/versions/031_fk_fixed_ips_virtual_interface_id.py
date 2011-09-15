@@ -23,7 +23,6 @@ from nova import utils
 
 meta = MetaData()
 
-
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     dialect = migrate_engine.url.get_dialect().name

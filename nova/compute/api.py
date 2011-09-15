@@ -1052,7 +1052,7 @@ class API(base.Base):
                     vm_state=vm_states.ACTIVE,
                     task_state=task_states.REBOOTING)
         self._cast_compute_message('reboot_instance', context, instance_uuid,
-                reboot_type)
+                params={'reboot_type': reboot_type})
 
     @scheduler_api.reroute_compute("rebuild")
     def rebuild(self, context, instance_uuid, image_href, admin_password,
