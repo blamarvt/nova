@@ -109,6 +109,43 @@ DROP TABLE volumes_backup;
 -- END volumes
 
 
+-- START block_device_mapping
+ALTER TABLE block_device_mapping RENAME TO block_device_mapping_backup;
+
+CREATE TABLE block_device_mapping (
+    created_at DATETIME, 
+    updated_at DATETIME, 
+    deleted_at DATETIME, 
+    deleted BOOLEAN, 
+    id INTEGER NOT NULL, 
+    instance_uuid VARCHAR(36) NOT NULL, 
+    device_name VARCHAR(255) NOT NULL, 
+    delete_on_termination BOOLEAN, 
+    virtual_name VARCHAR(255), 
+    snapshot_id INTEGER, 
+    volume_id INTEGER, 
+    volume_size INTEGER, 
+    no_device BOOLEAN, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(snapshot_id) REFERENCES snapshots (id), 
+    FOREIGN KEY(volume_id) REFERENCES volumes (id), 
+    FOREIGN KEY(instance_uuid) REFERENCES instances (uuid), 
+    CHECK (delete_on_termination IN (0, 1)), 
+    CHECK (deleted IN (0, 1)), 
+    CHECK (no_device IN (0, 1))
+);
+
+INSERT INTO block_device_mapping SELECT * FROM block_device_mapping_backup;
+
+UPDATE block_device_mapping
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = block_device_mapping.instance_uuid
+    );
+
+DROP TABLE block_device_mapping_backup;
+-- END block_device_mapping
+
+
 -- START virtual_interfaces
 ALTER TABLE virtual_interfaces RENAME TO virtual_interfaces_backup;
 
