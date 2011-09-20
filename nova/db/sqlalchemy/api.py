@@ -1159,7 +1159,7 @@ def instance_get(context, instance_uuid, session=None):
                     options(joinedload_all('security_groups.rules')).\
                     options(joinedload('volumes')).\
                     options(joinedload('metadata')).\
-                    options(joinedload('instance_type'))
+                    options(joinedload('instance_type')).\
                     filter_by(uuid=instance_uuid)
 
     if is_admin_context(context):
