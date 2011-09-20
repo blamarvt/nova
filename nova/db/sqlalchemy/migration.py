@@ -38,9 +38,12 @@ FLAGS = flags.FLAGS
 
 
 def db_sync(version=None):
-    db_version()
+    current_version = db_version()
     repo_path = _find_migrate_repo()
-    return versioning_api.upgrade(FLAGS.sql_connection, repo_path, version)
+    if current_version > version:
+        return versioning_api.downgrade(FLAGS.sql_connection, repo_path, version)
+    elif current_version < version:
+        return versioning_api.upgrade(FLAGS.sql_connection, repo_path, version)
 
 
 def db_version():
