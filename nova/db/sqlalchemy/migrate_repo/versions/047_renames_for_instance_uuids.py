@@ -14,9 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova import utils
 
 from migrate import ForeignKeyConstraint
+
 from sqlalchemy import Column
 from sqlalchemy import Integer
 from sqlalchemy import MetaData
@@ -24,43 +24,51 @@ from sqlalchemy import String
 from sqlalchemy import Table
 from sqlalchemy import ForeignKey
 
+from nova import utils
+
 
 meta = MetaData()
 
-
-def prepare_other(migrate_engine):
 
 def upgrade(migrate_engine):
     migrate_engine.echo = True
     meta.bind = migrate_engine
 
-    fixed_ips_table = Table('fixed_ips', meta, autoload=True)
-
-    instance_uuid_column = Column('instance_uuid',
-                                  String(36),
-                                  ForeignKey('instances.uuid'),
-                                  nullable=True)
-
-    fixed_ips_table.create_column(instance_uuid_column)
-
     instances = Table('instances', meta, autoload=True)
-    fixed_ips = Table('fixed_ips', meta, autoload=True)
 
     # generate map of instance ids to uuids, generating them where necessary
-    mapping = {}
-    for instance in migrate_engine.execute(instances.select()):
-        mapping[instance.id] = instance.uuid or utils.gen_uuid()
+    #mapping = {}
+    #for instance in migrate_engine.execute(instances.select()):
+    #    mapping[instance.id] = instance.uuid or utils.gen_uuid()
 
-    # iterate over instance ids/uuids and update current table
-    for instance_id, instance_uuid in mapping.iteritems():
-        query = fixed_ips.update().\
-                      where(table.c.instance_id == instance_id).\
-                      values(instance_uuid = instance_uuid)
-        migrate_engine.execute(query)
+    table_names = ['fixed_ips']
 
-    # drop old instance_id column
-    ForeignKeyConstraint(columns=[fixed_ips.c.instance_id],
-                         refcolumns=[instances.c.id]).drop()
+    for table_name in table_names:
+        Table(
+            table_name,
+            meta,
+            Column(
+                'instance_uuid',
+                String(36),
+                ForeignKey(instances.c.uuid),
+            ),
+            autoload=True,
+            useexisting=True,
+        ).create()
+
+        # iterate over instance ids/uuids and update current table
+        #for instance_id, instance_uuid in mapping.iteritems():
+        #    query = table.update().\
+        #                  where(table.c.instance_id == instance_id).\
+        #                  values(instance_uuid = instance_uuid)
+        #    migrate_engine.execute(query)
+
+        ForeignKeyConstraint([table.c.instance_id],
+                             [instances.c.id]).drop()
+
+
+        # drop old instance_id column
+        #table.c.instance_id.drop()
 
 
 def downgrade(migrate_engine):
