@@ -214,9 +214,6 @@ class Controller(object):
     def action(self, req, id, body):
         """Multi-purpose method used to take actions on a server"""
 
-        context = req.environ['nova.context']
-        uuid = self._convert_id(context, id)
-
         self.actions = {
             'changePassword': self._action_change_password,
             'reboot': self._action_reboot,
@@ -235,7 +232,7 @@ class Controller(object):
 
         for key in body:
             if key in self.actions:
-                return self.actions[key](body, req, uuid)
+                return self.actions[key](body, req, id)
             else:
                 msg = _("There is no such server action: %s") % (key,)
                 raise exc.HTTPBadRequest(explanation=msg)
@@ -255,6 +252,9 @@ class Controller(object):
 
         """
         entity = input_dict["createBackup"]
+
+        context = req.environ["nova.context"]
+        uuid = self._convert_id(context, instance_uuid)
 
         try:
             image_name = entity["name"]
@@ -276,12 +276,10 @@ class Controller(object):
             raise webob.exc.HTTPBadRequest(explanation=msg)
 
         # preserve link to server in image properties
-        server_ref = os.path.join(req.application_url,
-                                  'servers',instance_uuid)
+        server_ref = os.path.join(req.application_url, 'servers', uuid)
         props = {'instance_ref': server_ref}
 
         metadata = entity.get('metadata', {})
-        context = req.environ["nova.context"]
         common.check_img_metadata_quota_limit(context, metadata)
         try:
             props.update(metadata)
@@ -290,7 +288,7 @@ class Controller(object):
             raise webob.exc.HTTPBadRequest(explanation=msg)
 
         image = self.compute_api.backup(context,
-                                        instance_uuid,
+                                        uuid,
                                         image_name,
                                         backup_type,
                                         rotation,
@@ -312,18 +310,20 @@ class Controller(object):
         return exc.HTTPNotImplemented()
 
     def _action_confirm_resize(self, input_dict, req, instance_uuid):
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, instance_uuid)
         try:
-            context = req.environ['nova.context']
-            self.compute_api.confirm_resize(context, instance_uuid)
+            self.compute_api.confirm_resize(context, uuid)
         except Exception, e:
             LOG.exception(_("Error in confirm-resize %s"), e)
             raise exc.HTTPBadRequest()
         return exc.HTTPNoContent()
 
     def _action_revert_resize(self, input_dict, req, instance_uuid):
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, instance_uuid)
         try:
-            context = req.environ['nova.context']
-            self.compute_api.revert_resize(context, instance_uuid)
+            self.compute_api.revert_resize(context, uuid)
         except Exception, e:
             LOG.exception(_("Error in revert-resize %s"), e)
             raise exc.HTTPBadRequest()
@@ -344,9 +344,12 @@ class Controller(object):
             msg = _("Missing argument 'type' for reboot")
             LOG.exception(msg)
             raise exc.HTTPBadRequest(explanation=msg)
+
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, instance_uuid)
+
         try:
-            contetx = req.environ['nova.context']
-            self.compute_api.reboot(context, instance_uuid, reboot_type)
+            self.compute_api.reboot(context, uuid, reboot_type)
         except Exception, e:
             LOG.exception(_("Error in reboot %s"), e)
             raise exc.HTTPUnprocessableEntity()
@@ -639,9 +642,10 @@ class ControllerV10(Controller):
             self.compute_api.set_admin_password(context, uuid, admin_pass)
         return exc.HTTPNoContent()
 
-    def _action_resize(self, input_dict, req, id):
+    def _action_resize(self, input_dict, req, instance_id):
         """ Resizes a given instance to the flavor size requested """
-        uuid = self._convert_id(id)
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, instance_id)
         try:
             flavor_id = input_dict["resize"]["flavorId"]
         except (KeyError, TypeError):
@@ -650,9 +654,9 @@ class ControllerV10(Controller):
 
         return self.resize(req, uuid, flavor_id)
 
-    def _action_rebuild(self, info, request, instance_uuid):
+    def _action_rebuild(self, info, request, instance_id):
         context = request.environ['nova.context']
-
+        uuid = self._convert_id(context, instance_id)
         try:
             image_id = info["rebuild"]["imageId"]
         except (KeyError, TypeError):
@@ -663,9 +667,9 @@ class ControllerV10(Controller):
         password = utils.generate_password(FLAGS.password_length)
 
         try:
-            self.compute_api.rebuild(context, instance_uuid, image_id, password)
+            self.compute_api.rebuild(context, uuid, image_id, password)
         except exception.RebuildRequiresActiveInstance:
-            msg = _("Instance %s must be active to rebuild.") % instance_uuid
+            msg = _("Instance %s must be active to rebuild.") % uuid
             raise exc.HTTPConflict(explanation=msg)
 
         return webob.Response(status_int=202)
@@ -775,7 +779,7 @@ class ControllerV11(Controller):
         instance = self.compute_api.routing_get(context, uuid)
         return self._build_view(req, instance, is_detail=True)
 
-    def _action_resize(self, input_dict, req, id):
+    def _action_resize(self, input_dict, req, instance_uuid):
         """ Resizes a given instance to the flavor size requested """
         try:
             flavor_ref = input_dict["resize"]["flavorRef"]
@@ -786,7 +790,7 @@ class ControllerV11(Controller):
             msg = _("Resize requests require 'flavorRef' attribute.")
             raise exc.HTTPBadRequest(explanation=msg)
 
-        return self.resize(req, id, flavor_ref)
+        return self.resize(req, instance_uuid, flavor_ref)
 
     def _action_rebuild(self, info, request, instance_uuid):
         context = request.environ['nova.context']

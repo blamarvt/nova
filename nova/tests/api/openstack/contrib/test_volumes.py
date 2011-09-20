@@ -70,7 +70,6 @@ class BootFromVolumeTest(test.TestCase):
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         server = json.loads(res.body)['server']
-        self.assertEqual(1, server['id'])
         self.assertEqual(2, int(server['flavor']['id']))
         self.assertEqual(u'test_server', server['name'])
         self.assertEqual(3, int(server['image']['id']))

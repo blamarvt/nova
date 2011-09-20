@@ -30,6 +30,7 @@ import stubout
 import webob
 
 from nova import context
+import nova.compute
 import nova.api.openstack
 from nova.api.openstack import images
 from nova.api.openstack import xmlutil
@@ -40,6 +41,11 @@ from nova.tests.api.openstack import fakes
 NS = "{http://docs.openstack.org/compute/api/v1.1}"
 ATOMNS = "{http://www.w3.org/2005/Atom}"
 NOW_API_FORMAT = "2010-10-11T10:30:22Z"
+FAKE_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+
+
+def fake_get_instance_uuid(self, context, instance_id):
+    return FAKE_UUID
 
 
 class ImagesTest(test.TestCase):
@@ -57,6 +63,8 @@ class ImagesTest(test.TestCase):
         fakes.stub_out_compute_api_snapshot(self.stubs)
         fakes.stub_out_compute_api_backup(self.stubs)
         fakes.stub_out_glance(self.stubs)
+        self.stubs.Set(nova.compute.API, "get_instance_uuid",
+                       fake_get_instance_uuid)
 
     def tearDown(self):
         """Run after each test."""

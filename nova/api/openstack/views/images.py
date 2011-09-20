@@ -93,7 +93,7 @@ class ViewBuilderV10(ViewBuilder):
 
     def _build_server(self, image, image_obj):
         try:
-            image['serverId'] = int(image_obj['properties']['instance_uuid'])
+            image['serverId'] = int(image_obj['properties']['instance_id'])
         except (KeyError, ValueError):
             pass
 
