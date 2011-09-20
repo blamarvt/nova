@@ -1484,5 +1484,5 @@ class API(base.Base):
         uuids = self.db.instance_get_id_to_uuid_mapping(context, [instance_id])
         try:
             return uuids[0]
-        except IndexError:
+        except KeyError:
             raise exception.InstanceNotFound(instance_uuid=instance_id)

@@ -604,9 +604,10 @@ class ControllerV10(Controller):
     @scheduler_api.redirect_handler
     def delete(self, req, id):
         """ Destroys a server """
+        context = req.environ['nova.context']
         uuid = self._convert_id(context, id)
         try:
-            self.compute_api.delete(req.environ['nova.context'], uuid)
+            self.compute_api.delete(context, uuid)
         except exception.NotFound:
             raise exc.HTTPNotFound()
         return webob.Response(status_int=202)
