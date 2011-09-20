@@ -244,7 +244,7 @@ class FakeConnection(driver.ComputeDriver):
 
     def test_remove_vm(self, instance_name):
         """ Removes the named VM, as if it crashed. For testing"""
-        self.instances.pop(instance_name)
+        return self.instances.pop(instance_name)
 
     def update_host_status(self):
         """Return fake Host Status of ram, disk, network."""

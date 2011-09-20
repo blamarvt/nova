@@ -169,7 +169,7 @@ class ComputeManager(manager.SchedulerDependentManager):
                or FLAGS.start_guests_on_host_boot:
                 LOG.info(_('Rebooting instance %(inst_name)s after '
                             'nova-compute restart.'), locals())
-                self.reboot_instance(context, instance['id'])
+                self.reboot_instance(context, instance['uuid'])
             elif drv_state == power_state.RUNNING:
                 # Hyper-V and VMWareAPI drivers will raise and exception
                 try:
@@ -727,7 +727,7 @@ class ComputeManager(manager.SchedulerDependentManager):
 
         for i in xrange(max_tries):
             instance_ref = self.db.instance_get(context, instance_uuid)
-            instance_uuid = instance_ref["id"]
+            instance_uuid = instance_ref["uuid"]
             instance_state = instance_ref["power_state"]
             expected_state = power_state.RUNNING
 
@@ -762,7 +762,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         """Write a file to the specified path in an instance on this host."""
         context = context.elevated()
         instance_ref = self.db.instance_get(context, instance_uuid)
-        instance_uuid = instance_ref['id']
+        instance_uuid = instance_ref['uuid']
         instance_state = instance_ref['power_state']
         expected_state = power_state.RUNNING
         if instance_state != expected_state:
@@ -780,7 +780,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         """Update agent running on an instance on this host."""
         context = context.elevated()
         instance_ref = self.db.instance_get(context, instance_uuid)
-        instance_uuid = instance_ref['id']
+        instance_uuid = instance_ref['uuid']
         instance_state = instance_ref['power_state']
         expected_state = power_state.RUNNING
         if instance_state != expected_state:
@@ -1396,7 +1396,7 @@ class ComputeManager(manager.SchedulerDependentManager):
 
         fixed_ips = [nw_info[1]['ips'] for nw_info in network_info]
         if not fixed_ips:
-            raise exception.FixedIpNotFoundForInstance(instance_id=instance_id)
+            raise exception.FixedIpNotFoundForInstance(instance_id=instance_uuid)
 
         max_retry = FLAGS.live_migration_retry_count
         for cnt in range(max_retry):
@@ -1493,7 +1493,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         """
 
         LOG.info(_('post_live_migration() is started..'))
-        instance_uuid = instance_ref['id']
+        instance_uuid = instance_ref['uuid']
 
         # Detaching volumes.
         try:
@@ -1536,13 +1536,13 @@ class ComputeManager(manager.SchedulerDependentManager):
         rpc.call(ctxt,
                  self.db.queue_get_for(ctxt, FLAGS.compute_topic, dest),
                      {"method": "post_live_migration_at_destination",
-                      "args": {'instance_uuid': instance_ref.id,
+                      "args": {'instance_uuid': instance_ref.uuid,
                                'block_migration': block_migration}})
 
         # Restore instance state
         current_power_state = self._get_power_state(ctxt, instance_ref)
         self._instance_update(ctxt,
-                              instance_ref["id"],
+                              instance_ref["uuid"],
                               host=dest,
                               power_state=current_power_state,
                               vm_state=vm_states.ACTIVE,
@@ -1594,7 +1594,7 @@ class ComputeManager(manager.SchedulerDependentManager):
         """
         host = instance_ref['host']
         self._instance_update(context,
-                              instance_ref['id'],
+                              instance_ref['uuid'],
                               host=host,
                               vm_state=vm_states.ACTIVE,
                               task_state=None)
@@ -1611,7 +1611,7 @@ class ComputeManager(manager.SchedulerDependentManager):
             rpc.cast(context,
                      self.db.queue_get_for(context, FLAGS.compute_topic, dest),
                      {"method": "rollback_live_migration_at_destination",
-                      "args": {'instance_uuid': instance_ref['id']}})
+                      "args": {'instance_uuid': instance_ref['uuid']}})
 
     def rollback_live_migration_at_destination(self, context, instance_uuid):
         """ Cleaning up image directory that is created pre_live_migration.
@@ -1706,5 +1706,5 @@ class ComputeManager(manager.SchedulerDependentManager):
                 continue
 
             self._instance_update(context,
-                                  db_instance["id"],
+                                  db_instance["uuid"],
                                   power_state=vm_power_state)

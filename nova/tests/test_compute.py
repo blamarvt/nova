@@ -93,7 +93,7 @@ class ComputeTestCase(test.TestCase):
         inst['instance_type_id'] = type_id
         inst['ami_launch_index'] = 0
         inst.update(params)
-        return db.instance_create(self.context, inst)['id']
+        return db.instance_create(self.context, inst)['uuid']
 
     def _create_instance_type(self, params=None):
         """Create a test instance"""
@@ -130,6 +130,7 @@ class ComputeTestCase(test.TestCase):
         vol2['id'] = 2
         instance_ref = models.Instance()
         instance_ref['id'] = 1
+        instance_ref['uuid'] = utils.gen_uuid()
         instance_ref['volumes'] = [vol1, vol2]
         instance_ref['hostname'] = 'hostname-1'
         instance_ref['host'] = 'dummy'
@@ -144,7 +145,7 @@ class ComputeTestCase(test.TestCase):
             try:
                 self.assertNotEqual(ref[0]['display_name'], None)
             finally:
-                db.instance_destroy(self.context, ref[0]['id'])
+                db.instance_destroy(self.context, ref[0]['uuid'])
 
     def test_create_instance_associates_security_groups(self):
         """Make sure create associates security groups"""
@@ -156,12 +157,12 @@ class ComputeTestCase(test.TestCase):
                 security_group=['testgroup'])
         try:
             self.assertEqual(len(db.security_group_get_by_instance(
-                             self.context, ref[0]['id'])), 1)
+                             self.context, ref[0]['uuid'])), 1)
             group = db.security_group_get(self.context, group['id'])
             self.assert_(len(group.instances) == 1)
         finally:
             db.security_group_destroy(self.context, group['id'])
-            db.instance_destroy(self.context, ref[0]['id'])
+            db.instance_destroy(self.context, ref[0]['uuid'])
 
     def test_create_instance_with_invalid_security_group_raises(self):
         instance_type = instance_types.get_default_instance_type()
@@ -179,33 +180,33 @@ class ComputeTestCase(test.TestCase):
     def test_create_instance_with_img_ref_associates_config_drive(self):
         """Make sure create associates a config drive."""
 
-        instance_id = self._create_instance(params={'config_drive': '1234', })
+        instance_uuid = self._create_instance(params={'config_drive': '1234', })
 
         try:
-            self.compute.run_instance(self.context, instance_id)
+            self.compute.run_instance(self.context, instance_uuid)
             instances = db.instance_get_all(context.get_admin_context())
             instance = instances[0]
 
             self.assertTrue(instance.config_drive)
         finally:
-            db.instance_destroy(self.context, instance_id)
+            db.instance_destroy(self.context, instance_uuid)
 
     def test_create_instance_associates_config_drive(self):
         """Make sure create associates a config drive."""
 
-        instance_id = self._create_instance(params={'config_drive': True, })
+        instance_uuid = self._create_instance(params={'config_drive': True, })
 
         try:
-            self.compute.run_instance(self.context, instance_id)
+            self.compute.run_instance(self.context, instance_uuid)
             instances = db.instance_get_all(context.get_admin_context())
             instance = instances[0]
 
             self.assertTrue(instance.config_drive)
         finally:
-            db.instance_destroy(self.context, instance_id)
+            db.instance_destroy(self.context, instance_uuid)
 
     def test_default_hostname_generator(self):
-        cases = [(None, 'server-1'), ('Hello, Server!', 'hello-server'),
+        cases = [('Hello, Server!', 'hello-server'),
                  ('<}\x1fh\x10e\x08l\x02l\x05o\x12!{>', 'hello'),
                  ('hello_server', 'hello-server')]
         for display_name, hostname in cases:
@@ -215,7 +216,7 @@ class ComputeTestCase(test.TestCase):
             try:
                 self.assertEqual(ref[0]['hostname'], hostname)
             finally:
-                db.instance_destroy(self.context, ref[0]['id'])
+                db.instance_destroy(self.context, ref[0]['uuid'])
 
     def test_destroy_instance_disassociates_security_groups(self):
         """Make sure destroying disassociates security groups"""
@@ -227,7 +228,7 @@ class ComputeTestCase(test.TestCase):
                 image_href=None,
                 security_group=['testgroup'])
         try:
-            db.instance_destroy(self.context, ref[0]['id'])
+            db.instance_destroy(self.context, ref[0]['uuid'])
             group = db.security_group_get(self.context, group['id'])
             self.assert_(len(group.instances) == 0)
         finally:
@@ -249,19 +250,19 @@ class ComputeTestCase(test.TestCase):
                                           read_deleted=True), group['id'])
             self.assert_(len(group.instances) == 0)
         finally:
-            db.instance_destroy(self.context, ref[0]['id'])
+            db.instance_destroy(self.context, ref[0]['uuid'])
 
     def test_run_terminate(self):
         """Make sure it is possible to  run and terminate instance"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
 
         instances = db.instance_get_all(context.get_admin_context())
         LOG.info(_("Running instances: %s"), instances)
         self.assertEqual(len(instances), 1)
 
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
         instances = db.instance_get_all(context.get_admin_context())
         LOG.info(_("After terminating instances: %s"), instances)
@@ -269,134 +270,134 @@ class ComputeTestCase(test.TestCase):
 
     def test_run_terminate_timestamps(self):
         """Make sure timestamps are set for launched and destroyed"""
-        instance_id = self._create_instance()
-        instance_ref = db.instance_get(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        instance_ref = db.instance_get(self.context, instance_uuid)
         self.assertEqual(instance_ref['launched_at'], None)
         self.assertEqual(instance_ref['deleted_at'], None)
         launch = utils.utcnow()
-        self.compute.run_instance(self.context, instance_id)
-        instance_ref = db.instance_get(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
+        instance_ref = db.instance_get(self.context, instance_uuid)
         self.assert_(instance_ref['launched_at'] > launch)
         self.assertEqual(instance_ref['deleted_at'], None)
         terminate = utils.utcnow()
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
         self.context = self.context.elevated(True)
-        instance_ref = db.instance_get(self.context, instance_id)
+        instance_ref = db.instance_get(self.context, instance_uuid)
         self.assert_(instance_ref['launched_at'] < terminate)
         self.assert_(instance_ref['deleted_at'] > terminate)
 
     def test_stop(self):
         """Ensure instance can be stopped"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.stop_instance(self.context, instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.stop_instance(self.context, instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_start(self):
         """Ensure instance can be started"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.stop_instance(self.context, instance_id)
-        self.compute.start_instance(self.context, instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.stop_instance(self.context, instance_uuid)
+        self.compute.start_instance(self.context, instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_pause(self):
         """Ensure instance can be paused"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.pause_instance(self.context, instance_id)
-        self.compute.unpause_instance(self.context, instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.pause_instance(self.context, instance_uuid)
+        self.compute.unpause_instance(self.context, instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_suspend(self):
         """ensure instance can be suspended"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.suspend_instance(self.context, instance_id)
-        self.compute.resume_instance(self.context, instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.suspend_instance(self.context, instance_uuid)
+        self.compute.resume_instance(self.context, instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_soft_reboot(self):
         """Ensure instance can be soft rebooted"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         reboot_type = "SOFT"
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.reboot_instance(self.context, instance_id, reboot_type)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.reboot_instance(self.context, instance_uuid, reboot_type)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_hard_reboot(self):
         """Ensure instance can be hard rebooted"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         reboot_type = "HARD"
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.reboot_instance(self.context, instance_id, reboot_type)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.reboot_instance(self.context, instance_uuid, reboot_type)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_set_admin_password(self):
         """Ensure instance can have its admin password set"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.set_admin_password(self.context, instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.set_admin_password(self.context, instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_inject_file(self):
         """Ensure we can write a file to an instance"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.inject_file(self.context, instance_id, "/tmp/test",
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.inject_file(self.context, instance_uuid, "/tmp/test",
                 "File Contents")
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_agent_update(self):
         """Ensure instance can have its agent updated"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.agent_update(self.context, instance_id,
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.agent_update(self.context, instance_uuid,
                 'http://127.0.0.1/agent', '00112233445566778899aabbccddeeff')
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_snapshot(self):
         """Ensure instance can be snapshotted"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         name = "myfakesnapshot"
-        self.compute.run_instance(self.context, instance_id)
-        self.compute.snapshot_instance(self.context, instance_id, name)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
+        self.compute.snapshot_instance(self.context, instance_uuid, name)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_console_output(self):
         """Make sure we can get console output from instance"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
 
         console = self.compute.get_console_output(self.context,
-                                                        instance_id)
+                                                        instance_uuid)
         self.assert_(console)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_ajax_console(self):
         """Make sure we can get console output from instance"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
 
         console = self.compute.get_ajax_console(self.context,
-                                                instance_id)
+                                                instance_uuid)
         self.assert_(set(['token', 'host', 'port']).issubset(console.keys()))
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_vnc_console(self):
         """Make sure we can a vnc console for an instance."""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
 
         console = self.compute.get_vnc_console(self.context,
-                                               instance_id)
+                                               instance_uuid)
         self.assert_(console)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_run_instance_usage_notification(self):
         """Ensure run instance generates apropriate usage notification"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
         self.assertEquals(len(test_notifier.NOTIFICATIONS), 1)
         msg = test_notifier.NOTIFICATIONS[0]
         self.assertEquals(msg['priority'], 'INFO')
@@ -404,7 +405,7 @@ class ComputeTestCase(test.TestCase):
         payload = msg['payload']
         self.assertEquals(payload['project_id'], self.project_id)
         self.assertEquals(payload['user_id'], self.user_id)
-        self.assertEquals(payload['instance_id'], instance_id)
+        self.assertEquals(payload['instance_uuid'], instance_uuid)
         self.assertEquals(payload['instance_type'], 'm1.tiny')
         type_id = instance_types.get_instance_type_by_name('m1.tiny')['id']
         self.assertEquals(str(payload['instance_type_id']), str(type_id))
@@ -412,14 +413,14 @@ class ComputeTestCase(test.TestCase):
         self.assertTrue('created_at' in payload)
         self.assertTrue('launched_at' in payload)
         self.assertEquals(payload['image_ref'], '1')
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_terminate_usage_notification(self):
         """Ensure terminate_instance generates apropriate usage notification"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
         test_notifier.NOTIFICATIONS = []
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
         self.assertEquals(len(test_notifier.NOTIFICATIONS), 1)
         msg = test_notifier.NOTIFICATIONS[0]
@@ -428,7 +429,7 @@ class ComputeTestCase(test.TestCase):
         payload = msg['payload']
         self.assertEquals(payload['project_id'], self.project_id)
         self.assertEquals(payload['user_id'], self.user_id)
-        self.assertEquals(payload['instance_id'], instance_id)
+        self.assertEquals(payload['instance_uuid'], instance_uuid)
         self.assertEquals(payload['instance_type'], 'm1.tiny')
         type_id = instance_types.get_instance_type_by_name('m1.tiny')['id']
         self.assertEquals(str(payload['instance_type_id']), str(type_id))
@@ -439,32 +440,32 @@ class ComputeTestCase(test.TestCase):
 
     def test_run_instance_existing(self):
         """Ensure failure when running an instance that already exists"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
         self.assertRaises(exception.Error,
                           self.compute.run_instance,
                           self.context,
-                          instance_id)
-        self.compute.terminate_instance(self.context, instance_id)
+                          instance_uuid)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_lock(self):
         """ensure locked instance cannot be changed"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
 
         non_admin_context = context.RequestContext(None, None, False, False)
 
         # decorator should return False (fail) with locked nonadmin context
-        self.compute.lock_instance(self.context, instance_id)
-        ret_val = self.compute.reboot_instance(non_admin_context, instance_id)
+        self.compute.lock_instance(self.context, instance_uuid)
+        ret_val = self.compute.reboot_instance(non_admin_context, instance_uuid)
         self.assertEqual(ret_val, False)
 
         # decorator should return None (success) with unlocked nonadmin context
-        self.compute.unlock_instance(self.context, instance_id)
-        ret_val = self.compute.reboot_instance(non_admin_context, instance_id)
+        self.compute.unlock_instance(self.context, instance_uuid)
+        ret_val = self.compute.reboot_instance(non_admin_context, instance_uuid)
         self.assertEqual(ret_val, None)
 
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_finish_resize(self):
         """Contrived test to ensure finish_resize doesn't raise anything"""
@@ -475,8 +476,8 @@ class ComputeTestCase(test.TestCase):
         self.stubs.Set(self.compute.driver, 'finish_migration', fake)
         self.stubs.Set(self.compute.network_api, 'get_instance_nw_info', fake)
         context = self.context.elevated()
-        instance_id = self._create_instance()
-        instance_ref = db.instance_get(context, instance_id)
+        instance_uuid = self._create_instance()
+        instance_ref = db.instance_get(context, instance_uuid)
         self.compute.prep_resize(context, instance_ref['uuid'], 1)
         migration_ref = db.migration_get_by_instance_and_status(context,
                 instance_ref['uuid'], 'pre-migrating')
@@ -488,18 +489,18 @@ class ComputeTestCase(test.TestCase):
             # fail to actually error out so we don't obscure anything
             self.fail()
 
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_resize_instance_notification(self):
         """Ensure notifications on instance migrate/resize"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         context = self.context.elevated()
-        inst_ref = db.instance_get(context, instance_id)
+        inst_ref = db.instance_get(context, instance_uuid)
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
         test_notifier.NOTIFICATIONS = []
 
-        db.instance_update(self.context, instance_id, {'host': 'foo'})
+        db.instance_update(self.context, instance_uuid, {'host': 'foo'})
         self.compute.prep_resize(context, inst_ref['uuid'], 1)
         migration_ref = db.migration_get_by_instance_and_status(context,
                 inst_ref['uuid'], 'pre-migrating')
@@ -511,7 +512,8 @@ class ComputeTestCase(test.TestCase):
         payload = msg['payload']
         self.assertEquals(payload['project_id'], self.project_id)
         self.assertEquals(payload['user_id'], self.user_id)
-        self.assertEquals(payload['instance_id'], instance_id)
+        print payload
+        self.assertEquals(payload['instance_uuid'], instance_uuid)
         self.assertEquals(payload['instance_type'], 'm1.tiny')
         type_id = instance_types.get_instance_type_by_name('m1.tiny')['id']
         self.assertEquals(str(payload['instance_type_id']), str(type_id))
@@ -519,15 +521,15 @@ class ComputeTestCase(test.TestCase):
         self.assertTrue('created_at' in payload)
         self.assertTrue('launched_at' in payload)
         self.assertEquals(payload['image_ref'], '1')
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_resize_instance(self):
         """Ensure instance can be migrated/resized"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         context = self.context.elevated()
-        inst_ref = db.instance_get(context, instance_id)
+        inst_ref = db.instance_get(context, instance_uuid)
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
         db.instance_update(self.context, inst_ref['uuid'],
                            {'host': 'foo'})
         self.compute.prep_resize(context, inst_ref['uuid'], 1)
@@ -535,50 +537,50 @@ class ComputeTestCase(test.TestCase):
                 inst_ref['uuid'], 'pre-migrating')
         self.compute.resize_instance(context, inst_ref['uuid'],
                 migration_ref['id'])
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_resize_invalid_flavor_fails(self):
         """Ensure invalid flavors raise"""
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         context = self.context.elevated()
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
 
         self.assertRaises(exception.NotFound, self.compute_api.resize,
-                context, instance_id, 200)
+                context, instance_uuid, 200)
 
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_resize_down_fails(self):
         """Ensure resizing down raises and fails"""
         context = self.context.elevated()
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
         inst_type = instance_types.get_instance_type_by_name('m1.xlarge')
-        db.instance_update(self.context, instance_id,
+        db.instance_update(self.context, instance_uuid,
                 {'instance_type_id': inst_type['id']})
 
         self.assertRaises(exception.CannotResizeToSmallerSize,
-                          self.compute_api.resize, context, instance_id, 1)
+                          self.compute_api.resize, context, instance_uuid, 1)
 
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_resize_same_size_fails(self):
         """Ensure invalid flavors raise"""
         context = self.context.elevated()
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
 
         self.assertRaises(exception.CannotResizeToSameSize,
-                          self.compute_api.resize, context, instance_id, 1)
+                          self.compute_api.resize, context, instance_uuid, 1)
 
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_finish_revert_resize(self):
         """Ensure that the flavor is reverted to the original on revert"""
         context = self.context.elevated()
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
 
         def fake(*args, **kwargs):
             pass
@@ -587,15 +589,15 @@ class ComputeTestCase(test.TestCase):
         self.stubs.Set(self.compute.driver, 'revert_migration', fake)
         self.stubs.Set(self.compute.network_api, 'get_instance_nw_info', fake)
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
 
         # Confirm the instance size before the resize starts
-        inst_ref = db.instance_get(context, instance_id)
+        inst_ref = db.instance_get(context, instance_uuid)
         instance_type_ref = db.instance_type_get(context,
                 inst_ref['instance_type_id'])
         self.assertEqual(instance_type_ref['flavorid'], 1)
 
-        db.instance_update(self.context, instance_id, {'host': 'foo'})
+        db.instance_update(self.context, instance_uuid, {'host': 'foo'})
 
         new_instance_type_ref = db.instance_type_get_by_flavor_id(context, 3)
         self.compute.prep_resize(context, inst_ref['uuid'],
@@ -610,7 +612,7 @@ class ComputeTestCase(test.TestCase):
                     int(migration_ref['id']), {})
 
         # Prove that the instance size is now the new size
-        inst_ref = db.instance_get(context, instance_id)
+        inst_ref = db.instance_get(context, instance_uuid)
         instance_type_ref = db.instance_type_get(context,
                 inst_ref['instance_type_id'])
         self.assertEqual(instance_type_ref['flavorid'], 3)
@@ -621,12 +623,12 @@ class ComputeTestCase(test.TestCase):
         self.compute.finish_revert_resize(context, inst_ref['uuid'],
                 migration_ref['id'])
 
-        inst_ref = db.instance_get(context, instance_id)
+        inst_ref = db.instance_get(context, instance_uuid)
         instance_type_ref = db.instance_type_get(context,
                 inst_ref['instance_type_id'])
         self.assertEqual(instance_type_ref['flavorid'], 1)
 
-        self.compute.terminate_instance(context, instance_id)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def test_get_by_flavor_id(self):
         type = instance_types.get_instance_type_by_flavor_id(1)
@@ -635,20 +637,20 @@ class ComputeTestCase(test.TestCase):
     def test_resize_same_source_fails(self):
         """Ensure instance fails to migrate when source and destination are
         the same host"""
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
-        inst_ref = db.instance_get(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
+        inst_ref = db.instance_get(self.context, instance_uuid)
         self.assertRaises(exception.Error, self.compute.prep_resize,
                 self.context, inst_ref['uuid'], 1)
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_migrate(self):
         context = self.context.elevated()
-        instance_id = self._create_instance()
-        self.compute.run_instance(self.context, instance_id)
+        instance_uuid = self._create_instance()
+        self.compute.run_instance(self.context, instance_uuid)
         # Migrate simply calls resize() without a flavor_id.
-        self.compute_api.resize(context, instance_id, None)
-        self.compute.terminate_instance(context, instance_id)
+        self.compute_api.resize(context, instance_uuid, None)
+        self.compute.terminate_instance(context, instance_uuid)
 
     def _setup_other_managers(self):
         self.volume_manager = utils.import_object(FLAGS.volume_manager)
@@ -659,16 +661,16 @@ class ComputeTestCase(test.TestCase):
         """Confirm raising exception if instance doesn't have fixed_ip."""
         instance_ref = self._get_dummy_instance()
         c = context.get_admin_context()
-        i_id = instance_ref['id']
+        i_uuid = instance_ref['uuid']
 
         dbmock = self.mox.CreateMock(db)
-        dbmock.instance_get(c, i_id).AndReturn(instance_ref)
+        dbmock.instance_get(c, i_uuid).AndReturn(instance_ref)
 
         self.compute.db = dbmock
         self.mox.ReplayAll()
         self.assertRaises(exception.NotFound,
                           self.compute.pre_live_migration,
-                          c, instance_ref['id'], time=FakeTime())
+                          c, instance_ref['uuid'], time=FakeTime())
 
     def test_pre_live_migration_instance_has_volume(self):
         """Confirm setup_compute_volume is called when volume is mounted."""
@@ -683,7 +685,7 @@ class ComputeTestCase(test.TestCase):
         volmock = self.mox.CreateMock(self.volume_manager)
         drivermock = self.mox.CreateMock(self.compute_driver)
 
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         for i in range(len(i_ref['volumes'])):
             vid = i_ref['volumes'][i]['id']
             volmock.setup_compute_volume(c, vid).InAnyOrder('g1')
@@ -696,7 +698,7 @@ class ComputeTestCase(test.TestCase):
         self.compute.driver = drivermock
 
         self.mox.ReplayAll()
-        ret = self.compute.pre_live_migration(c, i_ref['id'])
+        ret = self.compute.pre_live_migration(c, i_ref['uuid'])
         self.assertEqual(ret, None)
 
     def test_pre_live_migration_instance_has_no_volume(self):
@@ -712,7 +714,7 @@ class ComputeTestCase(test.TestCase):
         dbmock = self.mox.CreateMock(db)
         drivermock = self.mox.CreateMock(self.compute_driver)
 
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         self.mox.StubOutWithMock(compute_manager.LOG, 'info')
         compute_manager.LOG.info(_("%s has no volume."), i_ref['hostname'])
         drivermock.plug_vifs(i_ref, fake_nw_info())
@@ -723,7 +725,7 @@ class ComputeTestCase(test.TestCase):
         self.compute.driver = drivermock
 
         self.mox.ReplayAll()
-        ret = self.compute.pre_live_migration(c, i_ref['id'], time=FakeTime())
+        ret = self.compute.pre_live_migration(c, i_ref['uuid'], time=FakeTime())
         self.assertEqual(ret, None)
 
     def test_pre_live_migration_setup_compute_node_fail(self):
@@ -744,7 +746,7 @@ class ComputeTestCase(test.TestCase):
         volmock = self.mox.CreateMock(self.volume_manager)
         drivermock = self.mox.CreateMock(self.compute_driver)
 
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         for i in range(len(i_ref['volumes'])):
             volmock.setup_compute_volume(c, i_ref['volumes'][i]['id'])
         for i in range(FLAGS.live_migration_retry_count):
@@ -760,7 +762,7 @@ class ComputeTestCase(test.TestCase):
         self.mox.ReplayAll()
         self.assertRaises(exception.ProcessExecutionError,
                           self.compute.pre_live_migration,
-                          c, i_ref['id'], time=FakeTime())
+                          c, i_ref['uuid'], time=FakeTime())
 
     def test_live_migration_works_correctly_with_volume(self):
         """Confirm check_for_export to confirm volume health check."""
@@ -769,14 +771,14 @@ class ComputeTestCase(test.TestCase):
         topic = db.queue_get_for(c, FLAGS.compute_topic, i_ref['host'])
 
         dbmock = self.mox.CreateMock(db)
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         self.mox.StubOutWithMock(rpc, 'call')
         rpc.call(c, FLAGS.volume_topic, {"method": "check_for_export",
-                                         "args": {'instance_id': i_ref['id']}})
+                                         "args": {'instance_uuid': i_ref['uuid']}})
         dbmock.queue_get_for(c, FLAGS.compute_topic, i_ref['host']).\
                              AndReturn(topic)
         rpc.call(c, topic, {"method": "pre_live_migration",
-                            "args": {'instance_id': i_ref['id'],
+                            "args": {'instance_uuid': i_ref['uuid'],
                                      'block_migration': False,
                                      'disk': None}})
 
@@ -788,7 +790,7 @@ class ComputeTestCase(test.TestCase):
 
         self.compute.db = dbmock
         self.mox.ReplayAll()
-        ret = self.compute.live_migration(c, i_ref['id'], i_ref['host'])
+        ret = self.compute.live_migration(c, i_ref['uuid'], i_ref['host'])
         self.assertEqual(ret, None)
 
     def test_live_migration_dest_raises_exception(self):
@@ -798,18 +800,18 @@ class ComputeTestCase(test.TestCase):
         topic = db.queue_get_for(c, FLAGS.compute_topic, i_ref['host'])
 
         dbmock = self.mox.CreateMock(db)
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         self.mox.StubOutWithMock(rpc, 'call')
         rpc.call(c, FLAGS.volume_topic, {"method": "check_for_export",
-                                         "args": {'instance_id': i_ref['id']}})
+                                         "args": {'instance_uuid': i_ref['uuid']}})
         dbmock.queue_get_for(c, FLAGS.compute_topic, i_ref['host']).\
                              AndReturn(topic)
         rpc.call(c, topic, {"method": "pre_live_migration",
-                            "args": {'instance_id': i_ref['id'],
+                            "args": {'instance_uuid': i_ref['uuid'],
                                      'block_migration': False,
                                      'disk': None}}).\
                             AndRaise(rpc.RemoteError('', '', ''))
-        dbmock.instance_update(c, i_ref['id'], {'vm_state': vm_states.ACTIVE,
+        dbmock.instance_update(c, i_ref['uuid'], {'vm_state': vm_states.ACTIVE,
                                                 'task_state': None,
                                                 'host': i_ref['host']})
         for v in i_ref['volumes']:
@@ -822,7 +824,7 @@ class ComputeTestCase(test.TestCase):
         self.mox.ReplayAll()
         self.assertRaises(rpc.RemoteError,
                           self.compute.live_migration,
-                          c, i_ref['id'], i_ref['host'])
+                          c, i_ref['uuid'], i_ref['host'])
 
     def test_live_migration_dest_raises_exception_no_volume(self):
         """Same as above test(input pattern is different) """
@@ -832,16 +834,16 @@ class ComputeTestCase(test.TestCase):
         topic = db.queue_get_for(c, FLAGS.compute_topic, i_ref['host'])
 
         dbmock = self.mox.CreateMock(db)
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         dbmock.queue_get_for(c, FLAGS.compute_topic, i_ref['host']).\
                              AndReturn(topic)
         self.mox.StubOutWithMock(rpc, 'call')
         rpc.call(c, topic, {"method": "pre_live_migration",
-                            "args": {'instance_id': i_ref['id'],
+                            "args": {'instance_uuid': i_ref['uuid'],
                                      'block_migration': False,
                                      'disk': None}}).\
                             AndRaise(rpc.RemoteError('', '', ''))
-        dbmock.instance_update(c, i_ref['id'], {'vm_state': vm_states.ACTIVE,
+        dbmock.instance_update(c, i_ref['uuid'], {'vm_state': vm_states.ACTIVE,
                                                 'task_state': None,
                                                 'host': i_ref['host']})
 
@@ -849,7 +851,7 @@ class ComputeTestCase(test.TestCase):
         self.mox.ReplayAll()
         self.assertRaises(rpc.RemoteError,
                           self.compute.live_migration,
-                          c, i_ref['id'], i_ref['host'])
+                          c, i_ref['uuid'], i_ref['host'])
 
     def test_live_migration_works_correctly_no_volume(self):
         """Confirm live_migration() works as expected correctly."""
@@ -859,12 +861,12 @@ class ComputeTestCase(test.TestCase):
         topic = db.queue_get_for(c, FLAGS.compute_topic, i_ref['host'])
 
         dbmock = self.mox.CreateMock(db)
-        dbmock.instance_get(c, i_ref['id']).AndReturn(i_ref)
+        dbmock.instance_get(c, i_ref['uuid']).AndReturn(i_ref)
         self.mox.StubOutWithMock(rpc, 'call')
         dbmock.queue_get_for(c, FLAGS.compute_topic, i_ref['host']).\
                              AndReturn(topic)
         rpc.call(c, topic, {"method": "pre_live_migration",
-                            "args": {'instance_id': i_ref['id'],
+                            "args": {'instance_uuid': i_ref['uuid'],
                                      'block_migration': False,
                                      'disk': None}})
         self.mox.StubOutWithMock(self.compute.driver, 'live_migration')
@@ -875,7 +877,7 @@ class ComputeTestCase(test.TestCase):
 
         self.compute.db = dbmock
         self.mox.ReplayAll()
-        ret = self.compute.live_migration(c, i_ref['id'], i_ref['host'])
+        ret = self.compute.live_migration(c, i_ref['uuid'], i_ref['host'])
         self.assertEqual(ret, None)
 
     def test_post_live_migration_working_correctly(self):
@@ -885,18 +887,18 @@ class ComputeTestCase(test.TestCase):
 
         # Preparing datas
         c = context.get_admin_context()
-        instance_id = self._create_instance()
-        i_ref = db.instance_get(c, instance_id)
-        db.instance_update(c, i_ref['id'], {'vm_state': vm_states.MIGRATING,
+        instance_uuid = self._create_instance()
+        i_ref = db.instance_get(c, instance_uuid)
+        db.instance_update(c, i_ref['uuid'], {'vm_state': vm_states.MIGRATING,
                                             'power_state': power_state.PAUSED})
-        v_ref = db.volume_create(c, {'size': 1, 'instance_id': instance_id})
+        v_ref = db.volume_create(c, {'size': 1, 'instance_uuid': instance_uuid})
         fix_addr = db.fixed_ip_create(c, {'address': '1.1.1.1',
-                                          'instance_id': instance_id})
+                                          'instance_uuid': instance_uuid})
         fix_ref = db.fixed_ip_get_by_address(c, fix_addr)
         flo_ref = db.floating_ip_create(c, {'address': flo_addr,
                                         'fixed_ip_id': fix_ref['id']})
         # reload is necessary before setting mocks
-        i_ref = db.instance_get(c, instance_id)
+        i_ref = db.instance_get(c, instance_uuid)
 
         # Preparing mocks
         self.mox.StubOutWithMock(self.compute.volume_manager,
@@ -908,21 +910,21 @@ class ComputeTestCase(test.TestCase):
         self.mox.StubOutWithMock(rpc, 'call')
         rpc.call(c, db.queue_get_for(c, FLAGS.compute_topic, dest),
             {"method": "post_live_migration_at_destination",
-             "args": {'instance_id': i_ref['id'], 'block_migration': False}})
+             "args": {'instance_uuid': i_ref['uuid'], 'block_migration': False}})
 
         # executing
         self.mox.ReplayAll()
         ret = self.compute.post_live_migration(c, i_ref, dest)
 
         # make sure every data is rewritten to dest
-        i_ref = db.instance_get(c, i_ref['id'])
+        i_ref = db.instance_get(c, i_ref['uuid'])
         c1 = (i_ref['host'] == dest)
         flo_refs = db.floating_ip_get_all_by_host(c, dest)
         c2 = (len(flo_refs) != 0 and flo_refs[0]['address'] == flo_addr)
 
         # post operaton
         self.assertTrue(c1 and c2)
-        db.instance_destroy(c, instance_id)
+        db.instance_destroy(c, instance_uuid)
         db.volume_destroy(c, v_ref['id'])
         db.floating_ip_destroy(c, flo_addr)
 
@@ -931,9 +933,9 @@ class ComputeTestCase(test.TestCase):
         self.stubs.Set(compute_manager.ComputeManager,
                 '_report_driver_status', nop_report_driver_status)
 
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
 
-        self.compute.run_instance(self.context, instance_id)
+        self.compute.run_instance(self.context, instance_uuid)
 
         instances = db.instance_get_all(context.get_admin_context())
         LOG.info(_("Running instances: %s"), instances)
@@ -954,56 +956,51 @@ class ComputeTestCase(test.TestCase):
     def test_get_all_by_name_regexp(self):
         """Test searching instances by name (display_name)"""
         c = context.get_admin_context()
-        instance_id1 = self._create_instance({'display_name': 'woot'})
-        instance_id2 = self._create_instance({
-                'display_name': 'woo',
-                'id': 20})
-        instance_id3 = self._create_instance({
-                'display_name': 'not-woot',
-                'id': 30})
+        instance_uuid1 = self._create_instance({'display_name': 'woot'})
+        instance_uuid2 = self._create_instance({'display_name': 'woo',
+                                                'id': 20})
+        instance_uuid3 = self._create_instance({'display_name': 'not-woot',
+                                                'id': 30})
 
-        instances = self.compute_api.get_all(c,
-                search_opts={'name': 'woo.*'})
+        instances = self.compute_api.get_all(c, search_opts={'name': 'woo.*'})
         self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id1 in instance_ids)
-        self.assertTrue(instance_id2 in instance_ids)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid1 in instance_uuids)
+        self.assertTrue(instance_uuid2 in instance_uuids)
 
-        instances = self.compute_api.get_all(c,
-                search_opts={'name': 'woot.*'})
-        instance_ids = [instance.id for instance in instances]
+        instances = self.compute_api.get_all(c, search_opts={'name': 'woot.*'})
+        instance_uuids = [instance.uuid for instance in instances]
         self.assertEqual(len(instances), 1)
-        self.assertTrue(instance_id1 in instance_ids)
+        self.assertTrue(instance_uuid1 in instance_uuids)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'name': '.*oot.*'})
         self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id1 in instance_ids)
-        self.assertTrue(instance_id3 in instance_ids)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid1 in instance_uuids)
+        self.assertTrue(instance_uuid3 in instance_uuids)
 
-        instances = self.compute_api.get_all(c,
-                search_opts={'name': 'n.*'})
+        instances = self.compute_api.get_all(c, search_opts={'name': 'n.*'})
         self.assertEqual(len(instances), 1)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id3 in instance_ids)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid3 in instance_uuids)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'name': 'noth.*'})
         self.assertEqual(len(instances), 0)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
+        db.instance_destroy(c, instance_uuid3)
 
     def test_get_all_by_instance_name_regexp(self):
         """Test searching instances by name"""
         self.flags(instance_name_template='instance-%d')
 
         c = context.get_admin_context()
-        instance_id1 = self._create_instance()
-        instance_id2 = self._create_instance({'id': 2})
-        instance_id3 = self._create_instance({'id': 10})
+        instance_uuid1 = self._create_instance({'id': 1})
+        instance_uuid2 = self._create_instance({'id': 2})
+        instance_uuid3 = self._create_instance({'id': 10})
 
         instances = self.compute_api.get_all(c,
                 search_opts={'instance_name': 'instance.*'})
@@ -1012,18 +1009,18 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'instance_name': '.*\-\d$'})
         self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id1 in instance_ids)
-        self.assertTrue(instance_id2 in instance_ids)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid1 in instance_uuids)
+        self.assertTrue(instance_uuid2 in instance_uuids)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'instance_name': 'i.*2'})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id2)
+        self.assertEqual(instances[0].uuid, instance_uuid2)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
+        db.instance_destroy(c, instance_uuid3)
 
     def test_get_all_by_multiple_options_at_once(self):
         """Test searching by multiple options at once"""
@@ -1036,21 +1033,19 @@ class ComputeTestCase(test.TestCase):
                        'instance_get_id_to_uuid_mapping',
                        db.instance_get_id_to_uuid_mapping)
 
-        instance_id1 = self._create_instance({'display_name': 'woot',
-                                              'id': 0})
-        instance_id2 = self._create_instance({
-                'display_name': 'woo',
-                'id': 20})
-        instance_id3 = self._create_instance({
-                'display_name': 'not-woot',
-                'id': 30})
+        instance_uuid1 = self._create_instance({'display_name': 'woot',
+                                                'id': 0})
+        instance_uuid2 = self._create_instance({'display_name': 'woo',
+                                                'id': 20})
+        instance_uuid3 = self._create_instance({'display_name': 'not-woot',
+                                                'id': 30})
 
         # ip ends up matching 2nd octet here.. so all 3 match ip
         # but 'name' only matches one
         instances = self.compute_api.get_all(c,
                 search_opts={'ip': '.*\.1', 'name': 'not.*'})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id3)
+        self.assertEqual(instances[0].uuid, instance_uuid3)
 
         # ip ends up matching any ip with a '1' in the last octet..
         # so instance 1 and 3.. but name should only match #1
@@ -1058,9 +1053,9 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'ip': '.*\.1$', 'name': '^woo.*'})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id1)
+        self.assertEqual(instances[0].uuid, instance_uuid1)
 
-        # same as above but no match on name (name matches instance_id1
+        # same as above but no match on name (name matches instance_uuid1
         # but the ip query doesn't
         instances = self.compute_api.get_all(c,
                 search_opts={'ip': '.*\.2$', 'name': '^woot.*'})
@@ -1072,22 +1067,19 @@ class ComputeTestCase(test.TestCase):
                              'name': 'not.*',
                              'ip6': '^.*12.*34.*'})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id3)
+        self.assertEqual(instances[0].uuid, instance_uuid3)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
+        db.instance_destroy(c, instance_uuid3)
 
     def test_get_all_by_image(self):
         """Test searching instances by image"""
 
         c = context.get_admin_context()
-        instance_id1 = self._create_instance({'image_ref': '1234'})
-        instance_id2 = self._create_instance({
-            'id': 2,
-            'image_ref': '4567'})
-        instance_id3 = self._create_instance({
-            'id': 10,
+        instance_uuid1 = self._create_instance({'image_ref': '1234'})
+        instance_uuid2 = self._create_instance({
+            'uuid': str(utils.gen_uuid()),
             'image_ref': '4567'})
 
         instances = self.compute_api.get_all(c,
@@ -1097,34 +1089,29 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'image': '1234'})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id1)
+        self.assertEqual(instances[0].uuid, instance_uuid1)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'image': '4567'})
-        self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id2 in instance_ids)
-        self.assertTrue(instance_id3 in instance_ids)
+        self.assertEqual(len(instances), 1)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid2 in instance_uuids)
 
         # Test passing a list as search arg
         instances = self.compute_api.get_all(c,
                 search_opts={'image': ['1234', '4567']})
-        self.assertEqual(len(instances), 3)
+        self.assertEqual(len(instances), 2)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
 
     def test_get_all_by_flavor(self):
         """Test searching instances by image"""
 
         c = context.get_admin_context()
-        instance_id1 = self._create_instance({'instance_type_id': 1})
-        instance_id2 = self._create_instance({
-                'id': 2,
-                'instance_type_id': 2})
-        instance_id3 = self._create_instance({
-                'id': 10,
+        instance_uuid1 = self._create_instance({'instance_type_id': 1})
+        instance_uuid2 = self._create_instance({
+                'uuid': str(utils.gen_uuid()),
                 'instance_type_id': 2})
 
         # NOTE(comstud): Migrations set up the instance_types table
@@ -1147,32 +1134,26 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'flavor': 3})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id1)
+        self.assertEqual(instances[0].uuid, instance_uuid1)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'flavor': 1})
-        self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id2 in instance_ids)
-        self.assertTrue(instance_id3 in instance_ids)
+        self.assertEqual(len(instances), 1)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid2 in instance_uuids)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
 
     def test_get_all_by_state(self):
         """Test searching instances by state"""
 
         c = context.get_admin_context()
-        instance_id1 = self._create_instance({
+        instance_uuid1 = self._create_instance({
             'power_state': power_state.SHUTDOWN,
         })
-        instance_id2 = self._create_instance({
-            'id': 2,
-            'power_state': power_state.RUNNING,
-        })
-        instance_id3 = self._create_instance({
-            'id': 10,
+        instance_uuid2 = self._create_instance({
+            'uuid': str(utils.gen_uuid()),
             'power_state': power_state.RUNNING,
         })
         instances = self.compute_api.get_all(c,
@@ -1182,39 +1163,33 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'power_state': power_state.SHUTDOWN})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id1)
+        self.assertEqual(instances[0].uuid, instance_uuid1)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'power_state': power_state.RUNNING})
-        self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id2 in instance_ids)
-        self.assertTrue(instance_id3 in instance_ids)
+        self.assertEqual(len(instances), 1)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid2 in instance_uuids)
 
         # Test passing a list as search arg
         instances = self.compute_api.get_all(c,
                 search_opts={'power_state': [power_state.SHUTDOWN,
                         power_state.RUNNING]})
-        self.assertEqual(len(instances), 3)
+        self.assertEqual(len(instances), 2)
 
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
 
     def test_get_all_by_metadata(self):
         """Test searching instances by metadata"""
 
         c = context.get_admin_context()
-        instance_id0 = self._create_instance()
-        instance_id1 = self._create_instance({
-                'metadata': {'key1': 'value1'}})
-        instance_id2 = self._create_instance({
-                'metadata': {'key2': 'value2'}})
-        instance_id3 = self._create_instance({
-                'metadata': {'key3': 'value3'}})
-        instance_id4 = self._create_instance({
-                'metadata': {'key3': 'value3',
-                             'key4': 'value4'}})
+        instance_uuid0 = self._create_instance()
+        instance_uuid1 = self._create_instance({'metadata': {'key1': 'value1'}})
+        instance_uuid2 = self._create_instance({'metadata': {'key2': 'value2'}})
+        instance_uuid3 = self._create_instance({'metadata': {'key3': 'value3'}})
+        instance_uuid4 = self._create_instance({'metadata': {'key3': 'value3',
+                                                             'key4': 'value4'}})
 
         # get all instances
         instances = self.compute_api.get_all(c,
@@ -1235,34 +1210,34 @@ class ComputeTestCase(test.TestCase):
         instances = self.compute_api.get_all(c,
                 search_opts={'metadata': {'key2': 'value2'}})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id2)
+        self.assertEqual(instances[0].uuid, instance_uuid2)
 
         instances = self.compute_api.get_all(c,
                 search_opts={'metadata': {'key3': 'value3'}})
         self.assertEqual(len(instances), 2)
-        instance_ids = [instance.id for instance in instances]
-        self.assertTrue(instance_id3 in instance_ids)
-        self.assertTrue(instance_id4 in instance_ids)
+        instance_uuids = [instance.uuid for instance in instances]
+        self.assertTrue(instance_uuid3 in instance_uuids)
+        self.assertTrue(instance_uuid4 in instance_uuids)
 
         # multiple criterias as a dict
         instances = self.compute_api.get_all(c,
                 search_opts={'metadata': {'key3': 'value3',
                                           'key4': 'value4'}})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id4)
+        self.assertEqual(instances[0].uuid, instance_uuid4)
 
         # multiple criterias as a list
         instances = self.compute_api.get_all(c,
                 search_opts={'metadata': [{'key4': 'value4'},
                                           {'key3': 'value3'}]})
         self.assertEqual(len(instances), 1)
-        self.assertEqual(instances[0].id, instance_id4)
+        self.assertEqual(instances[0].uuid, instance_uuid4)
 
-        db.instance_destroy(c, instance_id0)
-        db.instance_destroy(c, instance_id1)
-        db.instance_destroy(c, instance_id2)
-        db.instance_destroy(c, instance_id3)
-        db.instance_destroy(c, instance_id4)
+        db.instance_destroy(c, instance_uuid0)
+        db.instance_destroy(c, instance_uuid1)
+        db.instance_destroy(c, instance_uuid2)
+        db.instance_destroy(c, instance_uuid3)
+        db.instance_destroy(c, instance_uuid4)
 
     @staticmethod
     def _parse_db_block_device_mapping(bdm_ref):
@@ -1279,7 +1254,7 @@ class ComputeTestCase(test.TestCase):
     def test_update_block_device_mapping(self):
         swap_size = 1
         instance_type = {'swap': swap_size}
-        instance_id = self._create_instance()
+        instance_uuid = self._create_instance()
         mappings = [
                 {'virtual': 'ami', 'device': 'sda1'},
                 {'virtual': 'root', 'device': '/dev/sda1'},
@@ -1329,11 +1304,11 @@ class ComputeTestCase(test.TestCase):
                  'no_device': True}]
 
         self.compute_api._update_image_block_device_mapping(
-            self.context, instance_type, instance_id, mappings)
+            self.context, instance_type, instance_uuid, mappings)
 
         bdms = [self._parse_db_block_device_mapping(bdm_ref)
                 for bdm_ref in db.block_device_mapping_get_all_by_instance(
-                    self.context, instance_id)]
+                    self.context, instance_uuid)]
         expected_result = [
             {'virtual_name': 'swap', 'device_name': '/dev/sdb1',
              'volume_size': swap_size},
@@ -1350,10 +1325,10 @@ class ComputeTestCase(test.TestCase):
 
         self.compute_api._update_block_device_mapping(
             self.context, instance_types.get_default_instance_type(),
-            instance_id, block_device_mapping)
+            instance_uuid, block_device_mapping)
         bdms = [self._parse_db_block_device_mapping(bdm_ref)
                 for bdm_ref in db.block_device_mapping_get_all_by_instance(
-                    self.context, instance_id)]
+                    self.context, instance_uuid)]
         expected_result = [
             {'snapshot_id': 0x12345678, 'device_name': '/dev/sda1'},
 
@@ -1377,9 +1352,9 @@ class ComputeTestCase(test.TestCase):
         self.assertDictListMatch(bdms, expected_result)
 
         for bdm in db.block_device_mapping_get_all_by_instance(
-            self.context, instance_id):
+            self.context, instance_uuid):
             db.block_device_mapping_destroy(self.context, bdm['id'])
-        self.compute.terminate_instance(self.context, instance_id)
+        self.compute.terminate_instance(self.context, instance_uuid)
 
     def test_volume_size(self):
         local_size = 2

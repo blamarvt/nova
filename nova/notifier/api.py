@@ -101,7 +101,7 @@ def notify(publisher_id, event_type, priority, payload):
      'timestamp': utils.utcnow(),
      'priority': 'WARN',
      'event_type': 'compute.create_instance',
-     'payload': {'instance_id': 12, ... }}
+     'payload': {'instance_uuid': 12, ... }}
 
     """
     if priority not in log_levels:
