@@ -648,11 +648,7 @@ class VirtualInterface(BASE, NovaBase):
     network_id = Column(Integer, ForeignKey('networks.id'))
     network = relationship(Network, backref=backref('virtual_interfaces'))
 
-    # TODO(tr3buchet): cut the cord, removed foreign key and backrefs
-    instance_uuid = Column(String(36),
-                           ForeignKey('instances.uuid'),
-                           nullable=False)
-    instance = relationship(Instance, backref=backref('virtual_interfaces'))
+    instance_uuid = Column(String(36), nullable=False)
 
     uuid = Column(String(36))
 

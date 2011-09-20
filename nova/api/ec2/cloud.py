@@ -326,11 +326,6 @@ class CloudController(object):
         instance_ref = db.instance_get(ctxt, instance_ref[0]['id'])
 
         mpi = self._get_mpi_data(ctxt, instance_ref['project_id'])
-        if instance_ref['key_name']:
-            keys = {'0': {'_name': instance_ref['key_name'],
-                          'openssh-key': instance_ref['key_data']}}
-        else:
-            keys = ''
         hostname = instance_ref['hostname']
         host = instance_ref['host']
         availability_zone = self._get_availability_zone_by_host(ctxt, host)
@@ -358,10 +353,15 @@ class CloudController(object):
                 'placement': {'availability-zone': availability_zone},
                 'public-hostname': hostname,
                 'public-ipv4': floating_ip or '',
-                'public-keys': keys,
                 'reservation-id': instance_ref['reservation_id'],
                 'security-groups': security_groups,
                 'mpi': mpi}}
+
+        # public-keys should be in meta-data only if user specified one
+        if instance_ref['key_name']:
+            data['meta-data']['public-keys'] = {
+                '0': {'_name': instance_ref['key_name'],
+                      'openssh-key': instance_ref['key_data']}}
 
         for image_type in ['kernel', 'ramdisk']:
             if instance_ref.get('%s_id' % image_type):
@@ -594,18 +594,31 @@ class CloudController(object):
         g['ipPermissions'] = []
         for rule in group.rules:
             r = {}
-            r['ipProtocol'] = rule.protocol
-            r['fromPort'] = rule.from_port
-            r['toPort'] = rule.to_port
             r['groups'] = []
             r['ipRanges'] = []
             if rule.group_id:
                 source_group = db.security_group_get(context, rule.group_id)
                 r['groups'] += [{'groupName': source_group.name,
                                  'userId': source_group.project_id}]
+                if rule.protocol:
+                    r['ipProtocol'] = rule.protocol
+                    r['fromPort'] = rule.from_port
+                    r['toPort'] = rule.to_port
+                    g['ipPermissions'] += [dict(r)]
+                else:
+                    for protocol, min_port, max_port in (('icmp', -1, -1),
+                                                         ('tcp', 1, 65535),
+                                                         ('udp', 1, 65536)):
+                        r['ipProtocol'] = protocol
+                        r['fromPort'] = min_port
+                        r['toPort'] = max_port
+                        g['ipPermissions'] += [dict(r)]
             else:
+                r['ipProtocol'] = rule.protocol
+                r['fromPort'] = rule.from_port
+                r['toPort'] = rule.to_port
                 r['ipRanges'] += [{'cidrIp': rule.cidr}]
-            g['ipPermissions'] += [r]
+                g['ipPermissions'] += [r]
         return g
 
     def _rule_args_to_dict(self, context, kwargs):
