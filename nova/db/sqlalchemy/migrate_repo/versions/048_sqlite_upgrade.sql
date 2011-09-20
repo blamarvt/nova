@@ -124,7 +124,6 @@ CREATE TABLE virtual_interfaces (
     uuid VARCHAR(36), 
     PRIMARY KEY (id), 
     FOREIGN KEY(network_id) REFERENCES networks (id), 
-    FOREIGN KEY(instance_uuid) REFERENCES instances (uuid), 
     UNIQUE (address), 
     CHECK (deleted IN (0, 1))
 );
