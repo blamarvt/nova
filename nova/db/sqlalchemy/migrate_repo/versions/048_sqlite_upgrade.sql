@@ -22,10 +22,13 @@ CREATE TABLE fixed_ips (
     CHECK (deleted IN (0, 1))
 );
 
-SELECT * FROM fixed_ips_backup;
-
 INSERT INTO fixed_ips
     SELECT * FROM fixed_ips_backup;
+
+UPDATE fixed_ips 
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = fixed_ips.instance_uuid
+    );
 
 DROP TABLE fixed_ips_backup;
 -- END fixed_ips
@@ -51,6 +54,11 @@ CREATE TABLE security_group_instance_association (
 
 INSERT INTO security_group_instance_association
     SELECT * FROM security_group_instance_association_backup;
+
+UPDATE security_group_instance_association
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = security_group_instance_association.instance_uuid
+    );
 
 DROP TABLE security_group_instance_association_backup;
 -- END security_group_instance_association
@@ -92,8 +100,50 @@ CREATE TABLE volumes (
 
 INSERT INTO volumes SELECT * FROM volumes_backup;
 
+UPDATE volumes
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = volumes.instance_uuid
+    );
+
 DROP TABLE volumes_backup;
 -- END volumes
+
+
+-- START block_device_mapping
+ALTER TABLE block_device_mapping RENAME TO block_device_mapping_backup;
+
+CREATE TABLE block_device_mapping (
+    created_at DATETIME, 
+    updated_at DATETIME, 
+    deleted_at DATETIME, 
+    deleted BOOLEAN, 
+    id INTEGER NOT NULL, 
+    instance_uuid VARCHAR(36) NOT NULL, 
+    device_name VARCHAR(255) NOT NULL, 
+    delete_on_termination BOOLEAN, 
+    virtual_name VARCHAR(255), 
+    snapshot_id INTEGER, 
+    volume_id INTEGER, 
+    volume_size INTEGER, 
+    no_device BOOLEAN, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(snapshot_id) REFERENCES snapshots (id), 
+    FOREIGN KEY(volume_id) REFERENCES volumes (id), 
+    FOREIGN KEY(instance_uuid) REFERENCES instances (uuid), 
+    CHECK (delete_on_termination IN (0, 1)), 
+    CHECK (deleted IN (0, 1)), 
+    CHECK (no_device IN (0, 1))
+);
+
+INSERT INTO block_device_mapping SELECT * FROM block_device_mapping_backup;
+
+UPDATE block_device_mapping
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = block_device_mapping.instance_uuid
+    );
+
+DROP TABLE block_device_mapping_backup;
+-- END block_device_mapping
 
 
 -- START virtual_interfaces
@@ -111,12 +161,16 @@ CREATE TABLE virtual_interfaces (
     uuid VARCHAR(36), 
     PRIMARY KEY (id), 
     FOREIGN KEY(network_id) REFERENCES networks (id), 
-    FOREIGN KEY(instance_uuid) REFERENCES instances (uuid), 
     UNIQUE (address), 
     CHECK (deleted IN (0, 1))
 );
 
 INSERT INTO virtual_interfaces SELECT * FROM virtual_interfaces_backup;
+
+UPDATE virtual_interfaces
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = virtual_interfaces.instance_uuid
+    );
 
 DROP TABLE virtual_interfaces_backup;
 -- END virtual_interfaces
@@ -140,6 +194,11 @@ CREATE TABLE instance_metadata (
 );
 
 INSERT INTO instance_metadata SELECT * FROM instance_metadata_backup;
+
+UPDATE instance_metadata
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = instance_metadata.instance_uuid
+    );
 
 DROP TABLE instance_metadata_backup;
 -- END instance_metadata
