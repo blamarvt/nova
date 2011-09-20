@@ -1415,7 +1415,7 @@ class API(base.Base):
         rpc.cast(context,
                  self.db.queue_get_for(context, FLAGS.compute_topic, host),
                  {"method": "detach_volume",
-                  "args": {"instance_uuid": instance['id'],
+                  "args": {"instance_uuid": instance['uuid'],
                            "volume_id": volume_id}})
         return instance
 
@@ -1430,8 +1430,7 @@ class API(base.Base):
         # in its info, if this changes, the next few lines will need to
         # accomodate the info containing floating as well as fixed ip addresses
         fixed_ip_addrs = []
-        for info in self.network_api.get_instance_nw_info(context,
-                                                          instance):
+        for info in self.network_api.get_instance_nw_info(context, instance):
             ips = info[1]['ips']
             fixed_ip_addrs.extend([ip_dict['ip'] for ip_dict in ips])
 

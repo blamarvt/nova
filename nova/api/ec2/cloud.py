@@ -282,7 +282,7 @@ class CloudController(object):
 
         # 'ephemeralN', 'swap' and ebs
         for bdm in db.block_device_mapping_get_all_by_instance(
-            ctxt, instance_ref['id']):
+            ctxt, instance_ref.get('uuid')):
             if bdm['no_device']:
                 continue
 
@@ -323,18 +323,18 @@ class CloudController(object):
 
         # This ensures that all attributes of the instance
         # are populated.
-        instance_ref = db.instance_get(ctxt, instance_ref[0]['id'])
+        instance_ref = db.instance_get(ctxt, instance_ref[0]['uuid'])
 
         mpi = self._get_mpi_data(ctxt, instance_ref['project_id'])
         hostname = instance_ref['hostname']
         host = instance_ref['host']
         availability_zone = self._get_availability_zone_by_host(ctxt, host)
         floating_ip = db.instance_get_floating_address(ctxt,
-                                                       instance_ref['id'])
+                                                       instance_ref['uuid'])
         ec2_id = ec2utils.id_to_ec2_id(instance_ref['id'])
         image_ec2_id = self.image_ec2_id(instance_ref['image_ref'])
         security_groups = db.security_group_get_by_instance(ctxt,
-                                                            instance_ref['id'])
+                                                            instance_ref['uuid'])
         security_groups = [x['name'] for x in security_groups]
         mappings = self._format_instance_mapping(ctxt, instance_ref)
         data = {
@@ -915,8 +915,10 @@ class CloudController(object):
         else:
             ec2_id = instance_id
         instance_id = ec2utils.ec2_id_to_id(ec2_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         output = self.compute_api.get_console_output(
-                context, instance_id=instance_id)
+                context, instance_uuid=instance_uuid)
         now = utils.utcnow()
         return {"InstanceId": ec2_id,
                 "Timestamp": now,
@@ -934,8 +936,10 @@ class CloudController(object):
         """Returns vnc browser url.  Used by OS dashboard."""
         ec2_id = instance_id
         instance_id = ec2utils.ec2_id_to_id(ec2_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         return self.compute_api.get_vnc_console(context,
-                                                instance_id=instance_id)
+                                                instance_uuid=instance_uuid)
 
     def describe_volumes(self, context, volume_id=None, **kwargs):
         if volume_id:
@@ -1030,11 +1034,13 @@ class CloudController(object):
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
         volume_id = ec2utils.ec2_id_to_id(volume_id)
         instance_id = ec2utils.ec2_id_to_id(instance_id)
-        msg = _("Attach volume %(volume_id)s to instance %(instance_id)s"
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
+        msg = _("Attach volume %(volume_id)s to instance %(instance_uuid)s"
                 " at %(device)s") % locals()
         LOG.audit(msg, context=context)
         self.compute_api.attach_volume(context,
-                                       instance_id=instance_id,
+                                       instance_uuid=instance_uuid,
                                        volume_id=volume_id,
                                        device=device)
         volume = self.volume_api.get(context, volume_id=volume_id)
@@ -1141,7 +1147,9 @@ class CloudController(object):
 
         ec2_instance_id = instance_id
         instance_id = ec2utils.ec2_id_to_id(ec2_instance_id)
-        instance = self.compute_api.get(context, instance_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
+        instance = self.compute_api.get(context, instance_uuid)
         result = {'instance_id': ec2_instance_id}
         fn(instance, result)
         return result
@@ -1170,9 +1178,11 @@ class CloudController(object):
                              result):
         """Format InstanceBlockDeviceMappingResponseItemType"""
         root_device_type = 'instance-store'
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         mapping = []
         for bdm in db.block_device_mapping_get_all_by_instance(context,
-                                                               instance_id):
+                                                               instance_uuid):
             volume_id = bdm['volume_id']
             if (volume_id is None or bdm['no_device']):
                 continue
@@ -1229,9 +1239,11 @@ class CloudController(object):
         if instance_id:
             instances = []
             for ec2_id in instance_id:
-                internal_id = ec2utils.ec2_id_to_id(ec2_id)
+                instance_id = ec2utils.ec2_id_to_id(ec2_id)
+                instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                                  instance_id)
                 try:
-                    instance = self.compute_api.get(context, internal_id)
+                    instance = self.compute_api.get(context, instance_uuid)
                 except exception.NotFound:
                     continue
                 instances.append(instance)
@@ -1286,7 +1298,7 @@ class CloudController(object):
             self._format_instance_type(instance, i)
             i['launchTime'] = instance['created_at']
             i['amiLaunchIndex'] = instance['launch_index']
-            i['displayName'] = instance['display_name']
+            i['displayName'] = "Server %s" % instance_id
             i['displayDescription'] = instance['display_description']
             self._format_instance_root_device_name(instance, i)
             self._format_instance_bdm(context, instance_id,
@@ -1406,25 +1418,21 @@ class CloudController(object):
         return self._format_run_instances(context,
                 reservation_id=instances[0]['reservation_id'])
 
-    def _do_instance(self, action, context, instance_uuid):
+    def _do_instance(self, action, context, ec2_id):
+        instance_id = ec2utils.ec2_id_to_id(ec2_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         action(context, instance_uuid=instance_uuid)
 
-    def _do_instances(self, action, context, instance_uuids):
-        for instance_uuid in instance_uuids:
-            self._do_instance(action, context, instance_uuid)
+    def _do_instances(self, action, context, ec2_id_list):
+        for ec2_id in ec2_id_list:
+            self._do_instance(action, context, ec2_id)
 
     def terminate_instances(self, context, instance_id, **kwargs):
         """Terminate each instance in instance_id, which is a list of ec2 ids.
         instance_id is a kwarg so its name cannot be modified."""
         LOG.debug(_("Going to start terminating instances"))
-        ec2_id_list = instance_id
-        for ec2_id in ec2_id_list:
-            instance_id = ec2utils.ec2_id_to_id(ec2_id)
-            instance_uuid = self.compute_api.get_instance_uuid(context,
-                                                               instance_id)
-            self._do_instance(self.compute_api.delete,
-                               context,
-                               instance_uuid)
+        self._do_instances(self.compute_api.delete, context, instance_id)
         return True
 
     def reboot_instances(self, context, instance_id, **kwargs):
@@ -1465,7 +1473,9 @@ class CloudController(object):
                 changes[field] = kwargs[field]
         if changes:
             instance_id = ec2utils.ec2_id_to_id(instance_id)
-            self.compute_api.update(context, instance_id=instance_id,
+            instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                               instance_id)
+            self.compute_api.update(context, instance_uuid=instance_uuid,
                                     **changes)
         return True
 
@@ -1679,7 +1689,9 @@ class CloudController(object):
 
         ec2_instance_id = instance_id
         instance_id = ec2utils.ec2_id_to_id(ec2_instance_id)
-        instance = self.compute_api.get(context, instance_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
+        instance = self.compute_api.get(context, instance_uuid)
 
         # stop the instance if necessary
         restart_instance = False
@@ -1692,7 +1704,7 @@ class CloudController(object):
 
             if vm_state == vm_states.ACTIVE:
                 restart_instance = True
-                self.compute_api.stop(context, instance_id=instance_id)
+                self.compute_api.stop(context, instance_uuid=instance_uuid)
 
             # wait instance for really stopped
             start_time = time.time()
@@ -1715,7 +1727,7 @@ class CloudController(object):
 
         mapping = []
         bdms = db.block_device_mapping_get_all_by_instance(context,
-                                                           instance_id)
+                                                           instance_uuid)
         for bdm in bdms:
             if bdm.no_device:
                 continue
@@ -1768,6 +1780,6 @@ class CloudController(object):
         image_id = self._register_image(context, src_image)
 
         if restart_instance:
-            self.compute_api.start(context, instance_id=instance_id)
+            self.compute_api.start(context, instance_uuid=instance_uuid)
 
         return {'imageId': image_id}

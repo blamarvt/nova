@@ -682,13 +682,13 @@ class NetworkManager(manager.SchedulerDependentManager):
                                  'virtual_interface_id': None})
         fixed_ip_ref = self.db.fixed_ip_get_by_address(context, address)
         instance_ref = fixed_ip_ref['instance']
-        instance_uuid = instance_ref['id']
+        instance_uuid = instance_ref['uuid']
         self._do_trigger_security_group_members_refresh_for_instance(
                                                                    instance_uuid)
         if FLAGS.force_dhcp_release:
             dev = self.driver.get_dev(fixed_ip_ref['network'])
             vif = self.db.virtual_interface_get_by_instance_and_network(
-                    context, instance_ref['id'], fixed_ip_ref['network']['id'])
+                    context, instance_ref['uuid'], fixed_ip_ref['network']['id'])
             self.driver.release_dhcp(dev, address, vif['address'])
 
     def lease_fixed_ip(self, context, address):

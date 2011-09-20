@@ -186,7 +186,7 @@ class CloudTestCase(test.TestCase):
         self.cloud.release_address(self.context,
                                   public_ip=address)
         self.network.deallocate_fixed_ip(self.context, fixed)
-        db.instance_destroy(self.context, inst['id'])
+        db.instance_destroy(self.context, inst['uuid'])
         db.floating_ip_destroy(self.context, address)
 
     def test_describe_security_groups(self):
@@ -529,8 +529,8 @@ class CloudTestCase(test.TestCase):
                          instance_id)
         self.assertEqual(result['instancesSet'][0]
                          ['placement']['availabilityZone'], 'zone2')
-        db.instance_destroy(self.context, inst1['id'])
-        db.instance_destroy(self.context, inst2['id'])
+        db.instance_destroy(self.context, inst1['uuid'])
+        db.instance_destroy(self.context, inst2['uuid'])
         db.service_destroy(self.context, comp1['id'])
         db.service_destroy(self.context, comp2['id'])
 
@@ -539,14 +539,14 @@ class CloudTestCase(test.TestCase):
         inst1 = db.instance_create(self.context, args1)
         args2 = {'reservation_id': 'b', 'image_ref': 1, 'host': 'host1'}
         inst2 = db.instance_create(self.context, args2)
-        db.instance_destroy(self.context, inst1.id)
+        db.instance_destroy(self.context, inst1['uuid'])
         result = self.cloud.describe_instances(self.context)
         self.assertEqual(len(result['reservationSet']), 1)
         result1 = result['reservationSet'][0]['instancesSet']
         self.assertEqual(result1[0]['instanceId'],
                          ec2utils.id_to_ec2_id(inst2.id))
 
-    def _block_device_mapping_create(self, instance_id, mappings):
+    def _block_device_mapping_create(self, instance_uuid, mappings):
         volumes = []
         for bdm in mappings:
             db.block_device_mapping_create(self.context, bdm)
@@ -560,7 +560,7 @@ class CloudTestCase(test.TestCase):
                         values[vol_key] = bdm[bdm_key]
                 vol = db.volume_create(self.context, values)
                 db.volume_attached(self.context, vol['id'],
-                                   instance_id, bdm['device_name'])
+                                   instance_uuid, bdm['device_name'])
                 volumes.append(vol)
         return volumes
 
@@ -572,58 +572,58 @@ class CloudTestCase(test.TestCase):
                                   {'image_ref': 2,
                                    'root_device_name': '/dev/sdc1'})
 
-        instance_id = inst1['id']
+        instance_uuid = inst1['uuid']
         mappings0 = [
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb1',
              'snapshot_id': '1',
              'volume_id': '2'},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb2',
              'volume_id': '3',
              'volume_size': 1},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb3',
              'delete_on_termination': True,
              'snapshot_id': '4',
              'volume_id': '5'},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb4',
              'delete_on_termination': False,
              'snapshot_id': '6',
              'volume_id': '7'},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb5',
              'snapshot_id': '8',
              'volume_id': '9',
              'volume_size': 0},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb6',
              'snapshot_id': '10',
              'volume_id': '11',
              'volume_size': 1},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb7',
              'no_device': True},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb8',
              'virtual_name': 'swap'},
-            {'instance_id': instance_id,
+            {'instance_uuid': instance_uuid,
              'device_name': '/dev/sdb9',
              'virtual_name': 'ephemeral3'}]
 
-        volumes = self._block_device_mapping_create(instance_id, mappings0)
+        volumes = self._block_device_mapping_create(instance_uuid, mappings0)
         return (inst1, inst2, volumes)
 
     def _tearDownBlockDeviceMapping(self, inst1, inst2, volumes):
         for vol in volumes:
             db.volume_destroy(self.context, vol['id'])
-        for id in (inst1['id'], inst2['id']):
+        for id in (inst1['uuid'], inst2['uuid']):
             for bdm in db.block_device_mapping_get_all_by_instance(
                 self.context, id):
                 db.block_device_mapping_destroy(self.context, bdm['id'])
-        db.instance_destroy(self.context, inst2['id'])
-        db.instance_destroy(self.context, inst1['id'])
+        db.instance_destroy(self.context, inst2['uuid'])
+        db.instance_destroy(self.context, inst1['uuid'])
 
     _expected_instance_bdm1 = {
         'instanceId': 'i-00000001',
@@ -1161,16 +1161,16 @@ class CloudTestCase(test.TestCase):
         # non-existing instance_id
         self.assertRaises(exception.InstanceNotFound, terminate_instances,
                           self.context, ['i-2'])
-        db.instance_destroy(self.context, inst1['id'])
+        db.instance_destroy(self.context, inst1['uuid'])
 
     def test_update_of_instance_display_fields(self):
         inst = db.instance_create(self.context, {})
         ec2_id = ec2utils.id_to_ec2_id(inst['id'])
         self.cloud.update_instance(self.context, ec2_id,
                                    display_name='c00l 1m4g3')
-        inst = db.instance_get(self.context, inst['id'])
+        inst = db.instance_get(self.context, inst['uuid'])
         self.assertEqual('c00l 1m4g3', inst['display_name'])
-        db.instance_destroy(self.context, inst['id'])
+        db.instance_destroy(self.context, inst['uuid'])
 
     def test_update_of_instance_wont_update_private_fields(self):
         inst = db.instance_create(self.context, {})
@@ -1179,9 +1179,9 @@ class CloudTestCase(test.TestCase):
         self.cloud.update_instance(self.context, ec2_id,
                                    display_name='c00l 1m4g3',
                                    host='otherhost')
-        inst = db.instance_get(self.context, inst['id'])
+        inst = db.instance_get(self.context, inst['uuid'])
         self.assertEqual(host, inst['host'])
-        db.instance_destroy(self.context, inst['id'])
+        db.instance_destroy(self.context, inst['uuid'])
 
     def test_update_of_volume_display_fields(self):
         vol = db.volume_create(self.context, {})
@@ -1210,11 +1210,14 @@ class CloudTestCase(test.TestCase):
         else:
             self.compute = self.start_service('compute')
 
-    def _wait_for_state(self, ctxt, instance_id, predicate):
+    def _wait_for_state(self, ctxt, ec2_id, predicate):
         """Wait for a stopped instance to be a given state"""
-        id = ec2utils.ec2_id_to_id(instance_id)
+        instance_id = ec2utils.ec2_id_to_id(ec2_id)
+        instance_uuid = self.cloud.compute_api.get_instance_uuid(ctxt,
+                                                                 instance_id)
         while True:
-            info = self.cloud.compute_api.get(context=ctxt, instance_id=id)
+            info = self.cloud.compute_api.get(context=ctxt,
+                                              instance_uuid=instance_uuid)
             LOG.debug(info)
             if predicate(info):
                 break
@@ -1285,14 +1288,14 @@ class CloudTestCase(test.TestCase):
             kwargs['id'] = volume_id
         return db.volume_create(self.context, kwargs)
 
-    def _assert_volume_attached(self, vol, instance_id, mountpoint):
-        self.assertEqual(vol['instance_id'], instance_id)
+    def _assert_volume_attached(self, vol, instance_uuid, mountpoint):
+        self.assertEqual(vol['instance_uuid'], instance_uuid)
         self.assertEqual(vol['mountpoint'], mountpoint)
         self.assertEqual(vol['status'], "in-use")
         self.assertEqual(vol['attach_status'], "attached")
 
     def _assert_volume_detached(self, vol):
-        self.assertEqual(vol['instance_id'], None)
+        self.assertEqual(vol['instance_uuid'], None)
         self.assertEqual(vol['mountpoint'], None)
         self.assertEqual(vol['status'], "available")
         self.assertEqual(vol['attach_status'], "detached")
@@ -1317,17 +1320,18 @@ class CloudTestCase(test.TestCase):
                                            ]}
         ec2_instance_id = self._run_instance_wait(**kwargs)
         instance_id = ec2utils.ec2_id_to_id(ec2_instance_id)
-
-        vols = db.volume_get_all_by_instance(self.context, instance_id)
+        instance_uuid = self.cloud.compute_api.get_instance_uuid(self.context,
+                                                                 instance_id)
+        vols = db.volume_get_all_by_instance(self.context, instance_uuid)
         self.assertEqual(len(vols), 2)
         for vol in vols:
             self.assertTrue(vol['id'] == vol1['id'] or vol['id'] == vol2['id'])
 
         vol = db.volume_get(self.context, vol1['id'])
-        self._assert_volume_attached(vol, instance_id, '/dev/vdb')
+        self._assert_volume_attached(vol, instance_uuid, '/dev/vdb')
 
         vol = db.volume_get(self.context, vol2['id'])
-        self._assert_volume_attached(vol, instance_id, '/dev/vdc')
+        self._assert_volume_attached(vol, instance_uuid, '/dev/vdc')
 
         result = self.cloud.stop_instances(self.context, [ec2_instance_id])
         self.assertTrue(result)
@@ -1340,13 +1344,13 @@ class CloudTestCase(test.TestCase):
 
         self.cloud.start_instances(self.context, [ec2_instance_id])
         self._wait_for_running(ec2_instance_id)
-        vols = db.volume_get_all_by_instance(self.context, instance_id)
+        vols = db.volume_get_all_by_instance(self.context, instance_uuid)
         self.assertEqual(len(vols), 2)
         for vol in vols:
             self.assertTrue(vol['id'] == vol1['id'] or vol['id'] == vol2['id'])
             self.assertTrue(vol['mountpoint'] == '/dev/vdb' or
                             vol['mountpoint'] == '/dev/vdc')
-            self.assertEqual(vol['instance_id'], instance_id)
+            self.assertEqual(vol['instance_uuid'], instance_uuid)
             self.assertEqual(vol['status'], "in-use")
             self.assertEqual(vol['attach_status'], "attached")
 
@@ -1380,23 +1384,24 @@ class CloudTestCase(test.TestCase):
                                             'delete_on_termination': True}]}
         ec2_instance_id = self._run_instance_wait(**kwargs)
         instance_id = ec2utils.ec2_id_to_id(ec2_instance_id)
-
-        vols = db.volume_get_all_by_instance(self.context, instance_id)
+        instance_uuid = self.cloud.compute_api.get_instance_uuid(self.context,
+                                                                 instance_id)
+        vols = db.volume_get_all_by_instance(self.context, instance_uuid)
         self.assertEqual(len(vols), 1)
         for vol in vols:
             self.assertEqual(vol['id'], vol1['id'])
-            self._assert_volume_attached(vol, instance_id, '/dev/vdb')
+            self._assert_volume_attached(vol, instance_uuid, '/dev/vdb')
 
         vol = db.volume_get(self.context, vol2['id'])
         self._assert_volume_detached(vol)
 
         self.cloud.compute_api.attach_volume(self.context,
-                                             instance_id=instance_id,
+                                             instance_uuid=instance_uuid,
                                              volume_id=vol2['id'],
                                              device='/dev/vdc')
         greenthread.sleep(0.3)
         vol = db.volume_get(self.context, vol2['id'])
-        self._assert_volume_attached(vol, instance_id, '/dev/vdc')
+        self._assert_volume_attached(vol, instance_uuid, '/dev/vdc')
 
         self.cloud.compute_api.detach_volume(self.context,
                                              volume_id=vol1['id'])
@@ -1414,11 +1419,11 @@ class CloudTestCase(test.TestCase):
 
         self.cloud.start_instances(self.context, [ec2_instance_id])
         self._wait_for_running(ec2_instance_id)
-        vols = db.volume_get_all_by_instance(self.context, instance_id)
+        vols = db.volume_get_all_by_instance(self.context, instance_uuid)
         self.assertEqual(len(vols), 1)
         for vol in vols:
             self.assertEqual(vol['id'], vol2['id'])
-            self._assert_volume_attached(vol, instance_id, '/dev/vdc')
+            self._assert_volume_attached(vol, instance_uuid, '/dev/vdc')
 
         vol = db.volume_get(self.context, vol1['id'])
         self._assert_volume_detached(vol)
@@ -1461,8 +1466,9 @@ class CloudTestCase(test.TestCase):
                                             'delete_on_termination': True}]}
         ec2_instance_id = self._run_instance_wait(**kwargs)
         instance_id = ec2utils.ec2_id_to_id(ec2_instance_id)
-
-        vols = db.volume_get_all_by_instance(self.context, instance_id)
+        instance_uuid = self.cloud.compute_api.get_instance_uuid(self.context,
+                                                                 instance_id)
+        vols = db.volume_get_all_by_instance(self.context, instance_uuid)
         self.assertEqual(len(vols), 2)
         vol1_id = None
         vol2_id = None
@@ -1477,7 +1483,7 @@ class CloudTestCase(test.TestCase):
             else:
                 self.fail()
 
-            self._assert_volume_attached(vol, instance_id, mountpoint)
+            self._assert_volume_attached(vol, instance_uuid, mountpoint)
 
         self.assertTrue(vol1_id)
         self.assertTrue(vol2_id)
@@ -1611,7 +1617,7 @@ class CloudTestCase(test.TestCase):
         self.stubs.Set(db, 'block_device_mapping_get_all_by_instance',
                        self._fake_bdm_get)
 
-        def fake_get(ctxt, instance_id):
+        def fake_get(ctxt, instance_uuid):
             return {
                 'id': 0,
                 'root_device_name': '/dev/sdh',
@@ -1622,7 +1628,13 @@ class CloudTestCase(test.TestCase):
                 'ramdisk_id': 2,
                 'user_data': 'fake-user data',
                 }
+        def fake_get_uuid(ctxt, instance_id):
+            return 'fake_uuid'
+
         self.stubs.Set(self.cloud.compute_api, 'get', fake_get)
+        self.stubs.Set(self.cloud.compute_api,
+                       'get_instance_uuid',
+                       fake_get_uuid)
 
         def fake_volume_get(ctxt, volume_id, session=None):
             if volume_id == 87654321:

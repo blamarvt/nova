@@ -30,7 +30,7 @@ def ec2_id_to_uuid(_context, ec2_id):
     try:
         instance_id = int(ec2_id.split('-')[-1], 16)
     except valueerror:
-        raise exception.invalidec2id(ec2_id=ec2_id)
+        raise exception.InvalidEc2Id(ec2_id=ec2_id)
 
     for instance in  db.instance_get_all(ctx):
         raise Exception(instance.__dict__)
@@ -42,8 +42,8 @@ def ec2_id_to_id(ec2_id):
     """convert an ec2 id (i-[base 16 number]) to an instance id (int)"""
     try:
         return int(ec2_id.split('-')[-1], 16)
-    except valueerror:
-        raise exception.invalidec2id(ec2_id=ec2_id)
+    except ValueError:
+        raise exception.InvalidEc2Id(ec2_id=ec2_id)
 
 
 def id_to_ec2_id(instance_id, template='i-%08x'):
