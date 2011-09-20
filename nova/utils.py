@@ -298,7 +298,7 @@ def usage_from_instance(instance_ref, **kw):
     usage_info = dict(
           project_id=instance_ref['project_id'],
           user_id=instance_ref['user_id'],
-          instance_id=instance_ref['id'],
+          instance_uuid=instance_ref['uuid'],
           instance_type=instance_ref['instance_type']['name'],
           instance_type_id=instance_ref['instance_type_id'],
           display_name=instance_ref['display_name'],
