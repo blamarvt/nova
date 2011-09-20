@@ -22,10 +22,13 @@ CREATE TABLE fixed_ips (
     CHECK (deleted IN (0, 1))
 );
 
-SELECT * FROM fixed_ips_backup;
-
 INSERT INTO fixed_ips
     SELECT * FROM fixed_ips_backup;
+
+UPDATE fixed_ips 
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = fixed_ips.instance_uuid
+    );
 
 DROP TABLE fixed_ips_backup;
 -- END fixed_ips
@@ -51,6 +54,11 @@ CREATE TABLE security_group_instance_association (
 
 INSERT INTO security_group_instance_association
     SELECT * FROM security_group_instance_association_backup;
+
+UPDATE security_group_instance_association
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = security_group_instance_association.instance_uuid
+    );
 
 DROP TABLE security_group_instance_association_backup;
 -- END security_group_instance_association
@@ -92,6 +100,11 @@ CREATE TABLE volumes (
 
 INSERT INTO volumes SELECT * FROM volumes_backup;
 
+UPDATE volumes
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = volumes.instance_uuid
+    );
+
 DROP TABLE volumes_backup;
 -- END volumes
 
@@ -118,6 +131,11 @@ CREATE TABLE virtual_interfaces (
 
 INSERT INTO virtual_interfaces SELECT * FROM virtual_interfaces_backup;
 
+UPDATE virtual_interfaces
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = virtual_interfaces.instance_uuid
+    );
+
 DROP TABLE virtual_interfaces_backup;
 -- END virtual_interfaces
 
@@ -140,6 +158,11 @@ CREATE TABLE instance_metadata (
 );
 
 INSERT INTO instance_metadata SELECT * FROM instance_metadata_backup;
+
+UPDATE instance_metadata
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = instance_metadata.instance_uuid
+    );
 
 DROP TABLE instance_metadata_backup;
 -- END instance_metadata
