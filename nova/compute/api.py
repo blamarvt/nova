@@ -743,7 +743,7 @@ class API(base.Base):
         """Updates the instance in the datastore.
 
         :param context: The security context
-        :param instance_uuid: ID of the instance to update
+        :param instance_uuid: UUID of the instance to update
         :param kwargs: All additional keyword args are treated
                        as data fields of the instance to be
                        updated
@@ -1478,3 +1478,11 @@ class API(base.Base):
                                          _metadata,
                                          True)
         return _metadata
+
+    def get_instance_uuid(self, context, instance_id):
+        """Return instance uuid corresponding to the provided id"""
+        uuids = self.db.instance_get_id_to_uuid_mapping(context, [instance_id])
+        try:
+            return uuids[0]
+        except IndexError:
+            raise exception.InstanceNotFound(instance_uuid=instance_id)

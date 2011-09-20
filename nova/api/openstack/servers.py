@@ -52,6 +52,9 @@ class Controller(object):
         self.compute_api = compute.API()
         self.helper = helper.CreateInstanceHelper(self)
 
+    def _convert_id(self, _context, instance_uuid):
+        return instance_uuid
+
     def index(self, req):
         """ Returns a list of server names and ids for a given user """
         try:
@@ -138,9 +141,10 @@ class Controller(object):
     @scheduler_api.redirect_handler
     def show(self, req, id):
         """ Returns server details by server id """
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            instance = self.compute_api.routing_get(
-                req.environ['nova.context'], id)
+            instance = self.compute_api.routing_get(context, uuid)
             return self._build_view(req, instance, is_detail=True)
         except exception.NotFound:
             raise exc.HTTPNotFound()
@@ -179,6 +183,8 @@ class Controller(object):
             raise exc.HTTPUnprocessableEntity()
 
         ctxt = req.environ['nova.context']
+        uuid = self._convert_id(ctxt, id)
+
         update_dict = {}
 
         if 'name' in body['server']:
@@ -195,18 +201,21 @@ class Controller(object):
             update_dict['access_ip_v6'] = access_ipv6.strip()
 
         try:
-            self.compute_api.update(ctxt, id, **update_dict)
+            self.compute_api.update(ctxt, uuid, **update_dict)
         except exception.NotFound:
             raise exc.HTTPNotFound()
 
-        return self._update(ctxt, req, id, body)
+        return self._update(ctxt, req, uuid, body)
 
-    def _update(self, context, req, id, inst_dict):
+    def _update(self, context, req, uuid, inst_dict):
         return exc.HTTPNotImplemented()
 
     @scheduler_api.redirect_handler
     def action(self, req, id, body):
         """Multi-purpose method used to take actions on a server"""
+
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
 
         self.actions = {
             'changePassword': self._action_change_password,
@@ -226,7 +235,7 @@ class Controller(object):
 
         for key in body:
             if key in self.actions:
-                return self.actions[key](body, req, id)
+                return self.actions[key](body, req, uuid)
             else:
                 msg = _("There is no such server action: %s") % (key,)
                 raise exc.HTTPBadRequest(explanation=msg)
@@ -296,32 +305,34 @@ class Controller(object):
         return resp
 
     @common.check_snapshots_enabled
-    def _action_create_image(self, input_dict, req, id):
+    def _action_create_image(self, input_dict, req, instance_uuid):
         return exc.HTTPNotImplemented()
 
-    def _action_change_password(self, input_dict, req, id):
+    def _action_change_password(self, input_dict, req, instance_uuid):
         return exc.HTTPNotImplemented()
 
-    def _action_confirm_resize(self, input_dict, req, id):
+    def _action_confirm_resize(self, input_dict, req, instance_uuid):
         try:
-            self.compute_api.confirm_resize(req.environ['nova.context'], id)
+            context = req.environ['nova.context']
+            self.compute_api.confirm_resize(context, instance_uuid)
         except Exception, e:
             LOG.exception(_("Error in confirm-resize %s"), e)
             raise exc.HTTPBadRequest()
         return exc.HTTPNoContent()
 
-    def _action_revert_resize(self, input_dict, req, id):
+    def _action_revert_resize(self, input_dict, req, instance_uuid):
         try:
-            self.compute_api.revert_resize(req.environ['nova.context'], id)
+            context = req.environ['nova.context']
+            self.compute_api.revert_resize(context, instance_uuid)
         except Exception, e:
             LOG.exception(_("Error in revert-resize %s"), e)
             raise exc.HTTPBadRequest()
         return webob.Response(status_int=202)
 
-    def _action_resize(self, input_dict, req, id):
+    def _action_resize(self, input_dict, req, instance_uuid):
         return exc.HTTPNotImplemented()
 
-    def _action_reboot(self, input_dict, req, id):
+    def _action_reboot(self, input_dict, req, instance_uuid):
         if 'reboot' in input_dict and 'type' in input_dict['reboot']:
             valid_reboot_types = ['HARD', 'SOFT']
             reboot_type = input_dict['reboot']['type'].upper()
@@ -334,8 +345,8 @@ class Controller(object):
             LOG.exception(msg)
             raise exc.HTTPBadRequest(explanation=msg)
         try:
-            self.compute_api.reboot(req.environ['nova.context'], id,
-                    reboot_type)
+            contetx = req.environ['nova.context']
+            self.compute_api.reboot(context, instance_uuid, reboot_type)
         except Exception, e:
             LOG.exception(_("Error in reboot %s"), e)
             raise exc.HTTPUnprocessableEntity()
@@ -349,8 +360,9 @@ class Controller(object):
 
         """
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.lock(context, id)
+            self.compute_api.lock(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::lock %s"), readable)
@@ -365,8 +377,9 @@ class Controller(object):
 
         """
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.unlock(context, id)
+            self.compute_api.unlock(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::unlock %s"), readable)
@@ -380,8 +393,9 @@ class Controller(object):
 
         """
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.get_lock(context, id)
+            self.compute_api.get_lock(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::get_lock %s"), readable)
@@ -395,8 +409,9 @@ class Controller(object):
 
         """
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.reset_network(context, id)
+            self.compute_api.reset_network(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::reset_network %s"), readable)
@@ -410,8 +425,9 @@ class Controller(object):
 
         """
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.inject_network_info(context, id)
+            self.compute_api.inject_network_info(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::inject_network_info %s"), readable)
@@ -422,8 +438,9 @@ class Controller(object):
     def pause(self, req, id):
         """ Permit Admins to Pause the server. """
         ctxt = req.environ['nova.context']
+        uuid = self._convert_id(ctxt, id)
         try:
-            self.compute_api.pause(ctxt, id)
+            self.compute_api.pause(ctxt, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::pause %s"), readable)
@@ -434,8 +451,9 @@ class Controller(object):
     def unpause(self, req, id):
         """ Permit Admins to Unpause the server. """
         ctxt = req.environ['nova.context']
+        uuid = self._convert_id(ctxt, id)
         try:
-            self.compute_api.unpause(ctxt, id)
+            self.compute_api.unpause(ctxt, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("Compute.api::unpause %s"), readable)
@@ -446,8 +464,9 @@ class Controller(object):
     def suspend(self, req, id):
         """permit admins to suspend the server"""
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.suspend(context, id)
+            self.compute_api.suspend(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("compute.api::suspend %s"), readable)
@@ -458,8 +477,9 @@ class Controller(object):
     def resume(self, req, id):
         """permit admins to resume the server from suspend"""
         context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.resume(context, id)
+            self.compute_api.resume(context, uuid)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("compute.api::resume %s"), readable)
@@ -468,8 +488,10 @@ class Controller(object):
 
     @scheduler_api.redirect_handler
     def migrate(self, req, id):
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.resize(req.environ['nova.context'], id)
+            self.compute_api.resize(context, id)
         except Exception, e:
             LOG.exception(_("Error in migrate %s"), e)
             raise exc.HTTPBadRequest()
@@ -479,13 +501,14 @@ class Controller(object):
     def rescue(self, req, id, body={}):
         """Permit users to rescue the server."""
         context = req.environ["nova.context"]
+        uuid = self._convert_id(context, id)
         try:
             if 'rescue' in body and body['rescue'] and \
                     'adminPass' in body['rescue']:
                 password = body['rescue']['adminPass']
             else:
                 password = utils.generate_password(FLAGS.password_length)
-            self.compute_api.rescue(context, id, rescue_password=password)
+            self.compute_api.rescue(context, uuid, rescue_password=password)
         except Exception:
             readable = traceback.format_exc()
             LOG.exception(_("compute.api::rescue %s"), readable)
@@ -497,6 +520,7 @@ class Controller(object):
     def unrescue(self, req, id):
         """Permit users to unrescue the server."""
         context = req.environ["nova.context"]
+        uuid = self._convert_id(context, id)
         try:
             self.compute_api.unrescue(context, id)
         except Exception:
@@ -508,9 +532,10 @@ class Controller(object):
     @scheduler_api.redirect_handler
     def get_ajax_console(self, req, id):
         """Returns a url to an instance's ajaxterm console."""
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.get_ajax_console(req.environ['nova.context'],
-                int(id))
+            self.compute_api.get_ajax_console(context, uuid)
         except exception.NotFound:
             raise exc.HTTPNotFound()
         return webob.Response(status_int=202)
@@ -518,9 +543,10 @@ class Controller(object):
     @scheduler_api.redirect_handler
     def get_vnc_console(self, req, id):
         """Returns a url to an instance's ajaxterm console."""
+        context = req.environ['nova.context']
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.get_vnc_console(req.environ['nova.context'],
-                                             int(id))
+            self.compute_api.get_vnc_console(context, uuid)
         except exception.NotFound:
             raise exc.HTTPNotFound()
         return webob.Response(status_int=202)
@@ -529,12 +555,14 @@ class Controller(object):
     def diagnostics(self, req, id):
         """Permit Admins to retrieve server diagnostics."""
         ctxt = req.environ["nova.context"]
-        return self.compute_api.get_diagnostics(ctxt, id)
+        uuid = self._convert_id(ctxt, id)
+        return self.compute_api.get_diagnostics(ctxt, uuid)
 
     def actions(self, req, id):
         """Permit Admins to retrieve server actions."""
         ctxt = req.environ["nova.context"]
-        items = self.compute_api.get_actions(ctxt, id)
+        uuid = self._convert_id(ctxt, id)
+        items = self.compute_api.get_actions(ctxt, uuid)
         actions = []
         # TODO(jk0): Do not do pre-serialization here once the default
         # serializer is updated
@@ -567,11 +595,18 @@ class Controller(object):
 class ControllerV10(Controller):
     """v1.0 OpenStack API controller"""
 
+    def _convert_id(self, context, instance_id):
+        try:
+            return self.compute_api.get_instance_uuid(context, instance_id)
+        except exception.NotFound:
+            raise exc.HTTPNotFound()
+
     @scheduler_api.redirect_handler
     def delete(self, req, id):
         """ Destroys a server """
+        uuid = self._convert_id(context, id)
         try:
-            self.compute_api.delete(req.environ['nova.context'], id)
+            self.compute_api.delete(req.environ['nova.context'], uuid)
         except exception.NotFound:
             raise exc.HTTPNotFound()
         return webob.Response(status_int=202)
@@ -597,21 +632,22 @@ class ControllerV10(Controller):
     def _limit_items(self, items, req):
         return common.limited(items, req)
 
-    def _update(self, context, req, id, inst_dict):
+    def _update(self, context, req, uuid, inst_dict):
         if 'adminPass' in inst_dict['server']:
-            self.compute_api.set_admin_password(context, id,
-                    inst_dict['server']['adminPass'])
+            admin_pass = inst_dict['server']['adminPass']
+            self.compute_api.set_admin_password(context, uuid, admin_pass)
         return exc.HTTPNoContent()
 
     def _action_resize(self, input_dict, req, id):
         """ Resizes a given instance to the flavor size requested """
+        uuid = self._convert_id(id)
         try:
             flavor_id = input_dict["resize"]["flavorId"]
         except (KeyError, TypeError):
             msg = _("Resize requests require 'flavorId' attribute.")
             raise exc.HTTPBadRequest(explanation=msg)
 
-        return self.resize(req, id, flavor_id)
+        return self.resize(req, uuid, flavor_id)
 
     def _action_rebuild(self, info, request, instance_uuid):
         context = request.environ['nova.context']
@@ -734,8 +770,8 @@ class ControllerV11(Controller):
                 LOG.info(msg)
                 raise exc.HTTPBadRequest(explanation=msg)
 
-    def _update(self, context, req, id, inst_dict):
-        instance = self.compute_api.routing_get(context, id)
+    def _update(self, context, req, uuid, inst_dict):
+        instance = self.compute_api.routing_get(context, uuid)
         return self._build_view(req, instance, is_detail=True)
 
     def _action_resize(self, input_dict, req, id):
@@ -904,10 +940,9 @@ class ServerXMLSerializer(wsgi.XMLDictSerializer):
         """Populate a server xml element from a dict."""
 
         server_elem.set('name', server_dict['name'])
-        server_elem.set('id', str(server_dict['uuid']))
+        server_elem.set('id', str(server_dict['id']))
 
         if detailed:
-            server_elem.set('uuid', str(server_dict['uuid']))
             server_elem.set('userId', str(server_dict['user_id']))
             server_elem.set('tenantId', str(server_dict['tenant_id']))
             server_elem.set('updated', str(server_dict['updated']))

@@ -441,7 +441,7 @@ class BlockDeviceMapping(BASE, NovaBase):
                     ForeignKey('instances.uuid'),
                     nullable=False)
     instance = relationship(Instance,
-                            backref=backref('balock_device_mapping'),
+                            backref=backref('block_device_mapping'),
                             foreign_keys=instance_uuid,
                             primaryjoin='and_('
                              'BlockDeviceMapping.instance_uuid==Instance.uuid,'

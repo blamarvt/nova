@@ -56,7 +56,12 @@ class ViewBuilder(object):
 
     def _build_simple(self, inst):
         """Return a simple model of a server."""
-        return dict(server=dict(id=inst['id'], name=inst['display_name']))
+        return {
+            'server': {
+                'id': self._get_instance_id(inst),
+                'name': inst['display_name'],
+            },
+        }
 
     def _build_detail(self, inst):
         """Returns a detailed model of a server."""
@@ -64,7 +69,7 @@ class ViewBuilder(object):
         task_state = inst.get('task_state')
 
         inst_dict = {
-            'id': inst['id'],
+            'id': self._get_instance_id(inst),
             'name': inst['display_name'],
             'user_id': inst.get('user_id', ''),
             'tenant_id': inst.get('project_id', ''),
@@ -101,6 +106,9 @@ class ViewBuilder(object):
     def _build_extra(self, response, inst):
         pass
 
+    def _get_instance_id(self, inst):
+        raise NotImplementedError()
+
 
 class ViewBuilderV10(ViewBuilder):
     """Model an Openstack API V1.0 server response."""
@@ -118,6 +126,9 @@ class ViewBuilderV10(ViewBuilder):
 
     def _build_addresses(self, response, inst):
         response['addresses'] = self.addresses_builder.build(inst)
+
+    def _get_instance_id(self, inst):
+        return inst.get('id')
 
 
 class ViewBuilderV11(ViewBuilder):
@@ -185,8 +196,8 @@ class ViewBuilderV11(ViewBuilder):
         self._build_links(response, inst)
 
     def _build_links(self, response, inst):
-        href = self.generate_href(inst["id"])
-        bookmark = self.generate_bookmark(inst["id"])
+        href = self.generate_href(inst["uuid"])
+        bookmark = self.generate_bookmark(inst["uuid"])
 
         links = [
             {
@@ -210,3 +221,6 @@ class ViewBuilderV11(ViewBuilder):
         """Create an url that refers to a specific flavor id."""
         return os.path.join(common.remove_version_from_href(self.base_url),
             self.project_id, "servers", str(server_id))
+
+    def _get_instance_id(self, inst):
+        return inst.get('uuid')
