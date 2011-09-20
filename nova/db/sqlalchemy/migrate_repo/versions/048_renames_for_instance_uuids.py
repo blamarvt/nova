@@ -34,6 +34,7 @@ def upgrade(migrate_engine):
         mapping[instance.id] = instance.uuid or utils.gen_uuid()
 
     table_names = [
+        'block_device_mapping',
         'fixed_ips',
         'security_group_instance_association',
         'volumes',
