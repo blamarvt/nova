@@ -124,9 +124,12 @@ class ControllerV10(Controller):
             raise webob.exc.HTTPBadRequest(explanation=msg)
 
         context = req.environ["nova.context"]
+        instance_uuid = self._compute_service.get_instance_uuid(context,
+                                                                instance_id)
+        #NOTE(bcwaldon): purposefully use instance id here instead of uuid
         props = {'instance_id': instance_id}
         image = self._compute_service.snapshot(context,
-                                          instance_id,
+                                          instance_uuid,
                                           image_name,
                                           extra_properties=props)
 

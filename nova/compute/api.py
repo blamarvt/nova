@@ -679,8 +679,8 @@ class API(base.Base):
             return False
 
         inst_id = None
-        for inst_id in (instance['id'] for instance in instances \
-                        if instance_uuid == instance['uuid']):
+        for inst_uuid in (instance['id'] for instance in instances \
+                        if instance_uuid == instance['id']):
             return True
 
         return False

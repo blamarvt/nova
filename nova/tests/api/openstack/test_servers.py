@@ -26,6 +26,7 @@ from xml.dom import minidom
 import webob
 
 from nova import context
+from nova import db
 from nova import exception
 from nova import flags
 from nova import test
@@ -2639,6 +2640,11 @@ class ServersTest(test.TestCase):
 
 class TestServerStatus(test.TestCase):
 
+    def setUp(self):
+        super(TestServerStatus, self).setUp()
+        self.stubs.Set(nova.compute.API, "get_instance_uuid",
+                       fake_get_instance_uuid)
+
     def _get_with_state(self, vm_state, task_state=None):
         new_server = return_server_with_state(vm_state, task_state)
         self.stubs.Set(nova.db.api, 'instance_get', new_server)
@@ -3799,18 +3805,19 @@ class ServersViewBuilderV11Test(test.TestCase):
         return view_builder
 
     def test_build_server(self):
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "name": "test_server",
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }
@@ -3820,18 +3827,19 @@ class ServersViewBuilderV11Test(test.TestCase):
         self.assertDictMatch(output, expected_server)
 
     def test_build_server_with_project_id(self):
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "name": "test_server",
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/fake/servers/%s" % FAKE_UUID,
+                        "href": "http://localhost/v1.1/fake/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/fake/servers/1",
+                        "href": "http://localhost/fake/servers/%s" % UUID,
                     },
                 ],
             }
@@ -3842,11 +3850,12 @@ class ServersViewBuilderV11Test(test.TestCase):
         self.assertDictMatch(output, expected_server)
 
     def test_build_server_detail(self):
+        UUID = self.instance['uuid']
         image_bookmark = "http://localhost/images/5"
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -3882,11 +3891,11 @@ class ServersViewBuilderV11Test(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }
@@ -3900,9 +3909,10 @@ class ServersViewBuilderV11Test(test.TestCase):
         self.instance['vm_state'] = vm_states.ACTIVE
         image_bookmark = "http://localhost/images/5"
         flavor_bookmark = "http://localhost/flavors/1"
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -3938,11 +3948,11 @@ class ServersViewBuilderV11Test(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }
@@ -3957,9 +3967,10 @@ class ServersViewBuilderV11Test(test.TestCase):
 
         image_bookmark = "http://localhost/images/5"
         flavor_bookmark = "http://localhost/flavors/1"
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -3995,11 +4006,11 @@ class ServersViewBuilderV11Test(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }
@@ -4014,9 +4025,10 @@ class ServersViewBuilderV11Test(test.TestCase):
 
         image_bookmark = "http://localhost/images/5"
         flavor_bookmark = "http://localhost/flavors/1"
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4052,11 +4064,11 @@ class ServersViewBuilderV11Test(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }
@@ -4074,9 +4086,10 @@ class ServersViewBuilderV11Test(test.TestCase):
 
         image_bookmark = "http://localhost/images/5"
         flavor_bookmark = "http://localhost/flavors/1"
+        UUID = self.instance['uuid']
         expected_server = {
             "server": {
-                "id": self.instance['uuid'],
+                "id": UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4115,11 +4128,11 @@ class ServersViewBuilderV11Test(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/servers/1",
+                        "href": "http://localhost/v1.1/servers/%s" % UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/servers/1",
+                        "href": "http://localhost/servers/%s" % UUID,
                     },
                 ],
             }

@@ -10,6 +10,7 @@ from nova import utils
 from nova import exception
 from nova import flags
 from nova.api.openstack import create_instance_helper
+import nova.compute
 from nova.compute import vm_states
 from nova.compute import instance_types
 import nova.db.api
@@ -21,17 +22,20 @@ from nova.tests.api.openstack import fakes
 FLAGS = flags.FLAGS
 
 
-def return_server_by_id(context, id):
-    return stub_instance(id)
+FAKE_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 
 
-def instance_update(context, instance_id, kwargs):
-    return stub_instance(instance_id)
+def return_server(context, uuid):
+    return stub_instance(uuid)
+
+
+def instance_update(context, instance_uuid, kwargs):
+    return stub_instance(instance_uuid)
 
 
 def return_server_with_attributes(**kwargs):
-    def _return_server(context, id):
-        return stub_instance(id, **kwargs)
+    def _return_server(context, uuid):
+        return stub_instance(uuid, **kwargs)
     return _return_server
 
 
@@ -46,8 +50,8 @@ def return_server_with_uuid_and_state(vm_state, task_state=None):
     return _return_server
 
 
-def stub_instance(id, metadata=None, image_ref="10", flavor_id="1",
-                  name=None, vm_state=None, task_state=None):
+def stub_instance(uuid, metadata=None, image_ref="10", flavor_id="1",
+                  name=None, vm_state=None, task_state=None, id=1):
     if metadata is not None:
         metadata_items = [{'key':k, 'value':v} for k, v in metadata.items()]
     else:
@@ -89,7 +93,7 @@ def stub_instance(id, metadata=None, image_ref="10", flavor_id="1",
         "metadata": metadata_items,
         "access_ip_v4": "",
         "access_ip_v6": "",
-        "uuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "uuid": uuid,
         "virtual_interfaces": [],
     }
 
@@ -111,6 +115,10 @@ class MockSetAdminPassword(object):
         self.password = password
 
 
+def fake_get_instance_uuid(self, context, instance_id):
+    return FAKE_UUID
+
+
 class ServerActionsTest(test.TestCase):
 
     def setUp(self):
@@ -119,8 +127,11 @@ class ServerActionsTest(test.TestCase):
         self.flags(verbose=True)
         self.stubs = stubout.StubOutForTesting()
         fakes.stub_out_auth(self.stubs)
-        self.stubs.Set(nova.db.api, 'instance_get', return_server_by_id)
+        self.stubs.Set(nova.db.api, 'instance_get', return_server)
         self.stubs.Set(nova.db.api, 'instance_update', instance_update)
+
+        self.stubs.Set(nova.compute.API, "get_instance_uuid",
+                       fake_get_instance_uuid)
 
         self.webreq = common.webob_factory('/v1.0/servers')
 
@@ -180,9 +191,6 @@ class ServerActionsTest(test.TestCase):
         state = vm_states.BUILDING
         new_return_server = return_server_with_state(state)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
-        self.stubs.Set(nova.db, 'instance_get_by_uuid',
-                       return_server_with_uuid_and_state(state))
-
         req = webob.Request.blank('/v1.0/servers/1/action')
         req.method = 'POST'
         req.content_type = 'application/json'
@@ -469,7 +477,7 @@ class ServerActionsTestV11(test.TestCase):
         super(ServerActionsTestV11, self).setUp()
         self.stubs = stubout.StubOutForTesting()
         fakes.stub_out_auth(self.stubs)
-        self.stubs.Set(nova.db.api, 'instance_get', return_server_by_id)
+        self.stubs.Set(nova.db.api, 'instance_get', return_server)
         self.stubs.Set(nova.db.api, 'instance_update', instance_update)
 
         fakes.stub_out_glance(self.stubs)
@@ -635,9 +643,6 @@ class ServerActionsTestV11(test.TestCase):
         state = vm_states.BUILDING
         new_return_server = return_server_with_state(state)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
-        self.stubs.Set(nova.db, 'instance_get_by_uuid',
-                       return_server_with_uuid_and_state(state))
-
         req = webob.Request.blank('/v1.1/fake/servers/1/action')
         req.method = 'POST'
         req.content_type = 'application/json'

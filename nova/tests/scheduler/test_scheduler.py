@@ -253,6 +253,9 @@ class SimpleDriverTestCase(test.TestCase):
                    network_manager='nova.network.manager.FlatManager',
                    volume_driver='nova.volume.driver.FakeISCSIDriver',
                    scheduler_driver='nova.scheduler.simple.SimpleScheduler')
+
+        self.stubs.Set(db, 'instance_get', fake_instance_get)
+
         self.scheduler = manager.SchedulerManager()
         self.context = context.get_admin_context()
         self.user_id = 'fake'
@@ -539,7 +542,7 @@ class SimpleDriverTestCase(test.TestCase):
         compute1.kill()
         compute2.kill()
 
-    def test_wont_sechedule_if_specified_host_is_down(self):
+    def test_wont_schedule_if_specified_host_is_down(self):
         compute1 = self.start_service('compute', host='host1')
         s1 = db.service_get_by_args(self.context, 'host1', 'nova-compute')
         now = utils.utcnow()
@@ -974,11 +977,8 @@ def zone_get_all(context):
            ]
 
 
-def fake_instance_get_by_uuid(context, uuid):
-    if FAKE_UUID_NOT_FOUND:
-        raise exception.InstanceNotFound(instance_id=uuid)
-    else:
-        return {'id': 1}
+def fake_instance_get(context, uuid):
+    return {'id': 1, 'uuid': uuid}
 
 
 class FakeRerouteCompute(api.reroute_compute):
@@ -1019,8 +1019,7 @@ class ZoneRedirectTest(test.TestCase):
         self.stubs = stubout.StubOutForTesting()
 
         self.stubs.Set(db, 'zone_get_all', zone_get_all)
-        self.stubs.Set(db, 'instance_get_by_uuid',
-                       fake_instance_get_by_uuid)
+        self.stubs.Set(db, 'instance_get', fake_instance_get)
         self.flags(enable_zone_routing=True)
 
     def tearDown(self):
