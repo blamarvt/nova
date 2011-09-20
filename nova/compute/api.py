@@ -944,7 +944,7 @@ class API(base.Base):
 
         return self.db.instance_get_all_by_filters(context, filters)
 
-    def _cast_compute_message(self, method, context, instance_id, host=None,
+    def _cast_compute_message(self, method, context, instance_uuid, host=None,
                               params=None):
         """Generic handler for RPC casts to compute.
 
