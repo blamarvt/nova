@@ -574,6 +574,9 @@ def instance_get_project_vpn(context, project_id):
     """Get a vpn instance by project or return None."""
     return IMPL.instance_get_project_vpn(context, project_id)
 
+def instance_get_id_by_uuid(context, instance_uuid):
+    """Get corresponding instance id or raise if it does not exist."""
+    return IMPL.instance_get_id_by_uuid(context, instance_uuid)
 
 def instance_set_state(context, instance_uuid, state, description=None):
     """Set the state of an instance."""

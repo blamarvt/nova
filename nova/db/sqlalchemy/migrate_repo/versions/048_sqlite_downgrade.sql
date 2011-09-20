@@ -1,4 +1,4 @@
-BEGIN TRANSACTION;
+--BEGIN TRANSACTION;
 
 -- START fixed_ips
 ALTER TABLE fixed_ips RENAME TO fixed_ips_backup;
@@ -27,7 +27,7 @@ INSERT INTO fixed_ips
 
 UPDATE fixed_ips 
     SET instance_id = (
-        SELECT id FROM instances WHERE id = fixed_ips.instance_id
+        SELECT id FROM instances WHERE uuid = fixed_ips.instance_id
     );
 
 DROP TABLE fixed_ips_backup;
@@ -57,7 +57,7 @@ INSERT INTO security_group_instance_association
 
 UPDATE security_group_instance_association
     SET instance_id = (
-        SELECT id FROM instances WHERE id = security_group_instance_association.instance_id
+        SELECT id FROM instances WHERE uuid = security_group_instance_association.instance_id
     );
 
 DROP TABLE security_group_instance_association_backup;
@@ -102,7 +102,7 @@ INSERT INTO volumes SELECT * FROM volumes_backup;
 
 UPDATE volumes
     SET instance_id = (
-        SELECT id FROM instances WHERE id = volumes.instance_id
+        SELECT id FROM instances WHERE uuid = volumes.instance_id
     );
 
 DROP TABLE volumes_backup;
@@ -139,7 +139,7 @@ INSERT INTO block_device_mapping SELECT * FROM block_device_mapping_backup;
 
 UPDATE block_device_mapping
     SET instance_id = (
-        SELECT id FROM instances WHERE id = block_device_mapping.instance_id
+        SELECT id FROM instances WHERE uuid = block_device_mapping.instance_id
     );
 
 DROP TABLE block_device_mapping_backup;
@@ -169,7 +169,7 @@ INSERT INTO virtual_interfaces SELECT * FROM virtual_interfaces_backup;
 
 UPDATE virtual_interfaces
     SET instance_id = (
-        SELECT id FROM instances WHERE id = virtual_interfaces.instance_id
+        SELECT id FROM instances WHERE uuid = virtual_interfaces.instance_id
     );
 
 DROP TABLE virtual_interfaces_backup;
@@ -197,10 +197,10 @@ INSERT INTO instance_metadata SELECT * FROM instance_metadata_backup;
 
 UPDATE instance_metadata
     SET instance_id = (
-        SELECT id FROM instances WHERE id = instance_metadata.instance_id
+        SELECT id FROM instances WHERE uuid = instance_metadata.instance_id
     );
 
 DROP TABLE instance_metadata_backup;
 -- END instance_metadata
 
-COMMIT;
+--COMMIT;

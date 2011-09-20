@@ -53,8 +53,6 @@ def setup():
     if os.path.exists(testdb):
         return
     migration.db_sync()
-    migration.db_sync(47)
-    migration.db_sync()
     ctxt = context.get_admin_context()
     network = network_manager.VlanManager()
     bridge_interface = FLAGS.flat_interface or FLAGS.vlan_interface
@@ -76,9 +74,3 @@ def setup():
 
     cleandb = os.path.join(FLAGS.state_path, FLAGS.sqlite_clean_db)
     shutil.copyfile(testdb, cleandb)
-
-
-def tearDown():
-    from nova.db import migration
-    migration.db_sync(47)
-    migration.db_sync()

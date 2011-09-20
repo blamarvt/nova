@@ -20,7 +20,7 @@ Handles all requests relating to schedulers.
 from novaclient import v1_1 as novaclient
 from novaclient import exceptions as novaclient_exceptions
 
-from nova import db
+from nova.db import api as db
 from nova import exception
 from nova import flags
 from nova import log as logging
@@ -287,30 +287,17 @@ class reroute_compute(object):
 
     def __call__(self, f):
         def wrapped_f(*args, **kwargs):
-            collection, context, item_id_or_uuid = \
+            collection, context, item_uuid = \
                             self.get_collection_context_and_id(args, kwargs)
 
-            attempt_reroute = False
-            if utils.is_uuid_like(item_id_or_uuid):
-                item_uuid = item_id_or_uuid
-                try:
-                    instance = db.instance_get_by_uuid(context, item_uuid)
-                except exception.InstanceNotFound, e:
-                    # NOTE(sirp): since a UUID was passed in, we can attempt
-                    # to reroute to a child zone
-                    attempt_reroute = True
-                    LOG.debug(_("Instance %(item_uuid)s not found "
-                                        "locally: '%(e)s'" % locals()))
-                else:
-                    # NOTE(sirp): since we're not re-routing in this case, and
-                    # we we were passed a UUID, we need to replace that UUID
-                    # with an integer ID in the argument list so that the
-                    # zone-local code can continue to use integer IDs.
-                    item_id = instance['id']
-                    args = list(args)      # needs to be mutable to replace
-                    self.replace_uuid_with_id(args, kwargs, item_id)
+            try:
+                instance = db.instance_get(context, item_uuid)
+            except exception.InstanceNotFound, e:
+                # NOTE(sirp): since a UUID was passed in, we can attempt
+                # to reroute to a child zone
+                msg = _("Instance %(item_uuid)s not found ""locally: '%(e)s'")
+                LOG.debug(msg % locals())
 
-            if attempt_reroute:
                 return self._route_to_child_zones(context, collection,
                         item_uuid)
             else:

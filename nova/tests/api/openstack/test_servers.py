@@ -26,7 +26,6 @@ from xml.dom import minidom
 import webob
 
 from nova import context
-from nova import db
 from nova import exception
 from nova import flags
 from nova import test
@@ -51,7 +50,17 @@ from nova.tests.api.openstack import fakes
 
 
 FLAGS = flags.FLAGS
-FAKE_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+
+FAKE_UUIDS = (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaae',
+)
+
+FAKE_UUID = FAKE_UUIDS[0]
+
 NS = "{http://docs.openstack.org/compute/api/v1.1}"
 ATOMNS = "{http://www.w3.org/2005/Atom}"
 XPATH_NS = {
@@ -64,61 +73,49 @@ def fake_gen_uuid():
     return FAKE_UUID
 
 
-def return_server_by_id(context, id):
-    return stub_instance(id)
-
-
-def return_server_by_uuid(context, uuid):
-    id = 1
-    return stub_instance(id, uuid=uuid)
+def return_server(context, uuid):
+    return stub_instance(uuid)
 
 
 def return_virtual_interface_by_instance(interfaces):
-    def _return_virtual_interface_by_instance(context, instance_id):
+    def _return_virtual_interface_by_instance(context, instance_uuid):
         return interfaces
     return _return_virtual_interface_by_instance
 
 
 def return_virtual_interface_instance_nonexistant(interfaces):
-    def _return_virtual_interface_by_instance(context, instance_id):
-        raise exception.InstanceNotFound(instance_id=instance_id)
+    def _return_virtual_interface_by_instance(context, instance_uuid):
+        raise exception.InstanceNotFound(instance_id=instance_uuid)
     return _return_virtual_interface_by_instance
 
 
 def return_server_with_attributes(**kwargs):
-    def _return_server(context, id):
-        return stub_instance(id, **kwargs)
+    def _return_server(context, uuid):
+        return stub_instance(uuid, **kwargs)
     return _return_server
 
 
 def return_server_with_addresses(private, public):
-    def _return_server(context, id):
-        return stub_instance(id, private_address=private,
+    def _return_server(context, uuid):
+        return stub_instance(uuid, private_address=private,
                              public_addresses=public)
     return _return_server
 
 
 def return_server_with_state(vm_state, task_state=None):
-    def _return_server(context, id):
-        return stub_instance(id, vm_state=vm_state, task_state=task_state)
-    return _return_server
-
-
-def return_server_with_uuid_and_state(vm_state, task_state):
-    def _return_server(context, id):
-        return stub_instance(id,
-                             uuid=FAKE_UUID,
-                             vm_state=vm_state,
-                             task_state=task_state)
+    def _return_server(context, uuid):
+        return stub_instance(uuid, vm_state=vm_state, task_state=task_state)
     return _return_server
 
 
 def return_servers(context, *args, **kwargs):
-    return [stub_instance(i, 'fake', 'fake') for i in xrange(5)]
+    return [stub_instance(uuid, 'fake', 'fake', id=id) for \
+            id, uuid in enumerate(FAKE_UUIDS)]
 
 
 def return_servers_by_reservation(context, reservation_id=""):
-    return [stub_instance(i, reservation_id) for i in xrange(5)]
+    return [stub_instance(uuid, reservation_id=reservation_id, id=id) for \
+            id, uuid in enumerate(FAKE_UUIDS)]
 
 
 def return_servers_by_reservation_empty(context, reservation_id=""):
@@ -136,31 +133,31 @@ def return_servers_from_child_zones(*args, **kwargs):
     zones = []
     for zone in xrange(3):
         servers = []
-        for server_id in xrange(5):
+        for server_uuid in FAKE_UUIDS:
             server = Server()
-            server._info = stub_instance(server_id, reservation_id="child")
+            server._info = stub_instance(server_uuid, reservation_id="child")
             servers.append(server)
 
         zones.append(("Zone%d" % zone, servers))
     return zones
 
 
-def return_security_group(context, instance_id, security_group_id):
+def return_security_group(context, instance_uuid, security_group_id):
     pass
 
 
-def instance_update(context, instance_id, values):
-    return stub_instance(instance_id, name=values.get('display_name'))
+def instance_update(context, instance_uuid, values):
+    return stub_instance(instance_uuid, name=values.get('display_name'))
 
 
-def instance_addresses(context, instance_id):
+def instance_addresses(context, instance_uuid):
     return None
 
 
-def stub_instance(id, user_id='fake', project_id='fake', private_address=None,
+def stub_instance(uuid, user_id='fake', project_id='fake', private_address=None,
                   public_addresses=None, host=None,
                   vm_state=None, task_state=None,
-                  reservation_id="", uuid=FAKE_UUID, image_ref="10",
+                  reservation_id="", id=1, image_ref="10",
                   flavor_id="1", interfaces=None, name=None, key_name='',
                   access_ipv4=None, access_ipv6=None):
     metadata = []
@@ -231,22 +228,26 @@ def stub_instance(id, user_id='fake', project_id='fake', private_address=None,
     return instance
 
 
-def fake_compute_api(cls, req, id):
+def fake_compute_api(cls, req, uuid):
     return True
 
 
-def find_host(self, context, instance_id):
+def find_host(self, context, instance_uuid):
     return "nova"
 
 
 class MockSetAdminPassword(object):
     def __init__(self):
-        self.instance_id = None
+        self.instance_uuid = None
         self.password = None
 
-    def __call__(self, context, instance_id, password):
-        self.instance_id = instance_id
+    def __call__(self, context, instance_uuid, password):
+        self.instance_uuid = instance_uuid
         self.password = password
+
+
+def fake_get_instance_uuid(self, context, instance_id):
+    return FAKE_UUID
 
 
 class ServersTest(test.TestCase):
@@ -260,8 +261,8 @@ class ServersTest(test.TestCase):
         fakes.stub_out_image_service(self.stubs)
         self.stubs.Set(utils, 'gen_uuid', fake_gen_uuid)
         self.stubs.Set(nova.db.api, 'instance_get_all_by_filters',
-                return_servers)
-        self.stubs.Set(nova.db.api, 'instance_get', return_server_by_id)
+                       return_servers)
+        self.stubs.Set(nova.db.api, 'instance_get', return_server)
         self.stubs.Set(nova.db.api, 'instance_get_all_by_project',
                        return_servers)
         self.stubs.Set(nova.db.api, 'instance_add_security_group',
@@ -277,6 +278,8 @@ class ServersTest(test.TestCase):
         self.stubs.Set(nova.compute.API, 'resume', fake_compute_api)
         self.stubs.Set(nova.compute.API, "get_diagnostics", fake_compute_api)
         self.stubs.Set(nova.compute.API, "get_actions", fake_compute_api)
+        self.stubs.Set(nova.compute.API, "get_instance_uuid",
+                       fake_get_instance_uuid)
 
         self.webreq = common.webob_factory('/v1.0/servers')
         self.config_drive = None
@@ -288,37 +291,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res_dict['server']['id'], 1)
         self.assertEqual(res_dict['server']['name'], 'server1')
 
-    def test_get_server_by_uuid(self):
-        """
-        The steps involved with resolving a UUID are pretty complicated;
-        here's what's happening in this scenario:
-
-        1. Show is calling `routing_get`
-
-        2. `routing_get` is wrapped by `reroute_compute` which does the work
-           of resolving requests to child zones.
-
-        3. `reroute_compute` looks up the UUID by hitting the stub
-           (returns_server_by_uuid)
-
-        4. Since the stub return that the record exists, `reroute_compute`
-           considers the request to be 'zone local', so it replaces the UUID
-           in the argument list with an integer ID and then calls the inner
-           function ('get').
-
-        5. The call to `get` hits the other stub 'returns_server_by_id` which
-           has the UUID set to FAKE_UUID
-
-        So, counterintuitively, we call `get` twice on the `show` command.
-        """
-        req = webob.Request.blank('/v1.0/servers/%s' % FAKE_UUID)
-        res = req.get_response(fakes.wsgi_app())
-        res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
-        self.assertEqual(res_dict['server']['uuid'], FAKE_UUID)
-        self.assertEqual(res_dict['server']['name'], 'server1')
-
-    def test_get_server_by_id_v1_1(self):
+    def test_get_server_v1_1(self):
         image_bookmark = "http://localhost/fake/images/10"
         flavor_ref = "http://localhost/v1.1/fake/flavors/1"
         flavor_id = "1"
@@ -344,13 +317,12 @@ class ServersTest(test.TestCase):
             interfaces=interfaces)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
         res_dict = json.loads(res.body)
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -401,12 +373,11 @@ class ServersTest(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        #FIXME(wwolf) Do we want the links to be id or uuid?
-                        "href": "http://localhost/v1.1/fake/servers/1",
+                        "href": "http://localhost/v1.1/fake/servers/%s" % FAKE_UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/fake/servers/1",
+                        "href": "http://localhost/fake/servers/%s" % FAKE_UUID,
                     },
                 ],
             }
@@ -414,7 +385,7 @@ class ServersTest(test.TestCase):
 
         self.assertDictMatch(res_dict, expected_server)
 
-    def test_get_server_by_id_v1_1_xml(self):
+    def test_get_server_v1_1_xml(self):
         image_bookmark = "http://localhost/fake/images/10"
         flavor_bookmark = "http://localhost/fake/flavors/1"
         public_ip = '192.168.0.3'
@@ -437,7 +408,7 @@ class ServersTest(test.TestCase):
             interfaces=interfaces)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         req.headers['Accept'] = 'application/xml'
         res = req.get_response(fakes.wsgi_app())
         output = res.body
@@ -446,8 +417,7 @@ class ServersTest(test.TestCase):
         xmlutil.validate_schema(root, 'server')
 
         expected = {
-            'id': 1,
-            'uuid': FAKE_UUID,
+            'id': FAKE_UUID,
             'user_id': 'fake',
             'tenant_id': 'fake',
             'updated': '2010-11-11T11:00:00Z',
@@ -476,17 +446,17 @@ class ServersTest(test.TestCase):
             'links': [
                 {
                     'rel': 'self',
-                    'href': 'http://localhost/v1.1/fake/servers/1',
+                    'href': 'http://localhost/v1.1/fake/servers/%s' % FAKE_UUID,
                 },
                 {
                     'rel': 'bookmark',
-                    'href': 'http://localhost/fake/servers/1',
+                    'href': 'http://localhost/fake/servers/%s' % FAKE_UUID,
                 },
             ],
         }
 
         self.assertTrue(root.xpath('/ns:server', namespaces=XPATH_NS))
-        for key in ['id', 'uuid', 'created', 'progress', 'name', 'status',
+        for key in ['id', 'created', 'progress', 'name', 'status',
                     'accessIPv4', 'accessIPv6', 'hostId']:
             self.assertEqual(root.get(key), str(expected[key]))
         self.assertEqual(root.get('userId'), str(expected['user_id']))
@@ -523,7 +493,7 @@ class ServersTest(test.TestCase):
         links = root.xpath('atom:link', namespaces=XPATH_NS)
         self.assertTrue(common.compare_links(links, expected['links']))
 
-    def test_get_server_with_active_status_by_id_v1_1(self):
+    def test_get_server_with_active_status_v1_1(self):
         image_bookmark = "http://localhost/fake/images/10"
         flavor_ref = "http://localhost/v1.1/fake/flavors/1"
         flavor_id = "1"
@@ -549,13 +519,12 @@ class ServersTest(test.TestCase):
             interfaces=interfaces, vm_state=vm_states.ACTIVE)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
         res_dict = json.loads(res.body)
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -606,11 +575,11 @@ class ServersTest(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/fake/servers/1",
+                        "href": "http://localhost/v1.1/fake/servers/%s" % FAKE_UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/fake/servers/1",
+                        "href": "http://localhost/fake/servers/%s" % FAKE_UUID,
                     },
                 ],
             }
@@ -618,7 +587,7 @@ class ServersTest(test.TestCase):
 
         self.assertDictMatch(res_dict, expected_server)
 
-    def test_get_server_with_id_image_ref_by_id_v1_1(self):
+    def test_get_server_with_id_image_ref_v1_1(self):
         image_ref = "10"
         image_bookmark = "http://localhost/fake/images/10"
         flavor_ref = "http://localhost/v1.1/fake/flavors/1"
@@ -646,13 +615,12 @@ class ServersTest(test.TestCase):
             image_ref=image_ref, flavor_id=flavor_id)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
         res_dict = json.loads(res.body)
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -703,11 +671,11 @@ class ServersTest(test.TestCase):
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/fake/servers/1",
+                        "href": "http://localhost/v1.1/fake/servers/%s" % FAKE_UUID,
                     },
                     {
                         "rel": "bookmark",
-                        "href": "http://localhost/fake/servers/1",
+                        "href": "http://localhost/fake/servers/%s" % FAKE_UUID,
                     },
                 ],
             }
@@ -830,7 +798,7 @@ class ServersTest(test.TestCase):
         self.assertEquals(ip.getAttribute('addr'), private)
 
     # NOTE(bcwaldon): lp830817
-    def test_get_server_by_id_malformed_networks_v1_1(self):
+    def test_get_server_with_malformed_networks_v1_1(self):
         ifaces = [
             {
                 'network': None,
@@ -843,14 +811,14 @@ class ServersTest(test.TestCase):
         new_return_server = return_server_with_attributes(interfaces=ifaces)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server1')
 
-    def test_get_server_by_id_with_addresses_v1_1(self):
+    def test_get_server_with_addresses_v1_1(self):
         self.flags(use_ipv6=True)
         interfaces = [
             {
@@ -873,11 +841,11 @@ class ServersTest(test.TestCase):
             interfaces=interfaces)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
 
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server1')
         addresses = res_dict['server']['addresses']
         expected = {
@@ -894,7 +862,7 @@ class ServersTest(test.TestCase):
 
         self.assertEqual(addresses, expected)
 
-    def test_get_server_by_id_with_addresses_v1_1_ipv6_disabled(self):
+    def test_get_server_with_addresses_v1_1_ipv6_disabled(self):
         self.flags(use_ipv6=False)
         interfaces = [
             {
@@ -917,11 +885,11 @@ class ServersTest(test.TestCase):
             interfaces=interfaces)
         self.stubs.Set(nova.db.api, 'instance_get', new_return_server)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
 
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server1')
         addresses = res_dict['server']['addresses']
         expected = {
@@ -967,7 +935,7 @@ class ServersTest(test.TestCase):
                        'virtual_interface_get_by_instance',
                        _return_vifs)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1/ips')
+        req = webob.Request.blank('/v1.1/fake/servers/%s/ips' % FAKE_UUID)
         res = req.get_response(fakes.wsgi_app())
         res_dict = json.loads(res.body)
 
@@ -1017,7 +985,8 @@ class ServersTest(test.TestCase):
                        'virtual_interface_get_by_instance',
                        _return_vifs)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1/ips/network_2')
+        uri = '/v1.1/fake/servers/%s/ips/network_2' % FAKE_UUID
+        req = webob.Request.blank(uri)
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
@@ -1037,7 +1006,8 @@ class ServersTest(test.TestCase):
                        'virtual_interface_get_by_instance',
                        _return_vifs)
 
-        req = webob.Request.blank('/v1.1/fake/servers/1/ips/network_0')
+        uri = '/v1.1/fake/servers/%s/ips/network_0' % FAKE_UUID
+        req = webob.Request.blank(uri)
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 404)
 
@@ -1122,7 +1092,7 @@ class ServersTest(test.TestCase):
 
         self.assertEqual(len(res_dict['servers']), 5)
         for i, s in enumerate(res_dict['servers']):
-            self.assertEqual(s['id'], i)
+            self.assertEqual(s['id'], FAKE_UUIDS[i])
             self.assertEqual(s['name'], 'server%d' % i)
             self.assertEqual(s.get('image', None), None)
 
@@ -1200,7 +1170,7 @@ class ServersTest(test.TestCase):
     def test_get_servers_with_bad_option_v1_0(self):
         # 1.0 API ignores unknown options
         def fake_get_all(compute_self, context, search_opts=None):
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID, id=100)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1214,7 +1184,7 @@ class ServersTest(test.TestCase):
     def test_get_servers_with_bad_option_v1_1(self):
         # 1.1 API also ignores unknown options
         def fake_get_all(compute_self, context, search_opts=None):
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1223,14 +1193,14 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_allows_image_v1_1(self):
         def fake_get_all(compute_self, context, search_opts=None):
             self.assertNotEqual(search_opts, None)
             self.assertTrue('image' in search_opts)
             self.assertEqual(search_opts['image'], '12345')
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
         self.flags(allow_admin_api=False)
@@ -1242,14 +1212,14 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_tenant_id_filter_converts_to_project_id_for_admin(self):
         def fake_get_all(context, filters=None, instances=None):
             self.assertNotEqual(filters, None)
             self.assertEqual(filters['project_id'], 'faketenant')
             self.assertFalse(filters.get('tenant_id'))
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.db.api, 'instance_get_all_by_filters',
                        fake_get_all)
@@ -1270,7 +1240,7 @@ class ServersTest(test.TestCase):
             self.assertTrue('flavor' in search_opts)
             # flavor is an integer ID
             self.assertEqual(search_opts['flavor'], '12345')
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
         self.flags(allow_admin_api=False)
@@ -1282,14 +1252,14 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_allows_status_v1_1(self):
         def fake_get_all(compute_self, context, search_opts=None):
             self.assertNotEqual(search_opts, None)
             self.assertTrue('vm_state' in search_opts)
             self.assertEqual(search_opts['vm_state'], vm_states.ACTIVE)
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
         self.flags(allow_admin_api=False)
@@ -1301,7 +1271,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_invalid_status_v1_1(self):
         """Test getting servers by invalid status"""
@@ -1316,7 +1286,7 @@ class ServersTest(test.TestCase):
             self.assertNotEqual(search_opts, None)
             self.assertTrue('name' in search_opts)
             self.assertEqual(search_opts['name'], 'whee.*')
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
         self.flags(allow_admin_api=False)
@@ -1328,7 +1298,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_allows_changes_since_v1_1(self):
         def fake_get_all(compute_self, context, search_opts=None):
@@ -1337,7 +1307,7 @@ class ServersTest(test.TestCase):
             changes_since = datetime.datetime(2011, 1, 24, 17, 8, 1)
             self.assertEqual(search_opts['changes-since'], changes_since)
             self.assertTrue('deleted' not in search_opts)
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1347,7 +1317,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_allows_changes_since_bad_value_v1_1(self):
         params = 'changes-since=asdf'
@@ -1372,7 +1342,7 @@ class ServersTest(test.TestCase):
             # Allowed only by admins with admin API on
             self.assertFalse('ip' in search_opts)
             self.assertFalse('unknown_option' in search_opts)
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1387,7 +1357,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_unknown_or_admin_options2(self):
         """Test getting servers by admin-only or unknown options.
@@ -1406,7 +1376,7 @@ class ServersTest(test.TestCase):
             # Allowed only by admins with admin API on
             self.assertFalse('ip' in search_opts)
             self.assertFalse('unknown_option' in search_opts)
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1421,7 +1391,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_unknown_or_admin_options3(self):
         """Test getting servers by admin-only or unknown options.
@@ -1439,7 +1409,7 @@ class ServersTest(test.TestCase):
             # Allowed only by admins with admin API on
             self.assertTrue('ip' in search_opts)
             self.assertTrue('unknown_option' in search_opts)
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1454,7 +1424,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_admin_allows_ip_v1_1(self):
         """Test getting servers by ip with admin_api enabled and
@@ -1466,7 +1436,7 @@ class ServersTest(test.TestCase):
             self.assertNotEqual(search_opts, None)
             self.assertTrue('ip' in search_opts)
             self.assertEqual(search_opts['ip'], '10\..*')
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1480,7 +1450,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def test_get_servers_admin_allows_ip6_v1_1(self):
         """Test getting servers by ip6 with admin_api enabled and
@@ -1492,7 +1462,7 @@ class ServersTest(test.TestCase):
             self.assertNotEqual(search_opts, None)
             self.assertTrue('ip6' in search_opts)
             self.assertEqual(search_opts['ip6'], 'ffff.*')
-            return [stub_instance(100)]
+            return [stub_instance(FAKE_UUID)]
 
         self.stubs.Set(nova.compute.API, 'get_all', fake_get_all)
 
@@ -1506,7 +1476,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 200)
         servers = json.loads(res.body)['servers']
         self.assertEqual(len(servers), 1)
-        self.assertEqual(servers[0]['id'], 100)
+        self.assertEqual(servers[0]['id'], FAKE_UUID)
 
     def _setup_for_create_instance(self):
         """Shared implementation for tests below that create instance"""
@@ -1580,20 +1550,9 @@ class ServersTest(test.TestCase):
         self.assertEqual(1, server['id'])
         self.assertEqual(2, server['flavorId'])
         self.assertEqual(3, server['imageId'])
-        self.assertEqual(FAKE_UUID, server['uuid'])
 
     def test_create_instance(self):
         self._test_create_instance_helper()
-
-    def test_create_instance_has_uuid(self):
-        """Tests at the db-layer instead of API layer since that's where the
-           UUID is generated
-        """
-        ctxt = context.RequestContext(1, 1)
-        values = {}
-        instance = nova.db.api.instance_create(ctxt, values)
-        expected = FAKE_UUID
-        self.assertEqual(instance['uuid'], expected)
 
     def test_create_instance_via_zones(self):
         """Server generated ReservationID"""
@@ -1777,7 +1736,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 202)
         server = json.loads(res.body)['server']
         self.assertEqual(FLAGS.password_length, len(server['adminPass']))
-        self.assertEqual(1, server['id'])
+        self.assertEqual(FAKE_UUID, server['id'])
         self.assertEqual(0, server['progress'])
         self.assertEqual('server_test', server['name'])
         self.assertEqual(expected_flavor, server['flavor'])
@@ -1837,7 +1796,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 202)
         server = json.loads(res.body)['server']
         self.assertEqual(FLAGS.password_length, len(server['adminPass']))
-        self.assertEqual(1, server['id'])
+        self.assertEqual(FAKE_UUID, server['id'])
         self.assertEqual("BUILD", server["status"])
         self.assertEqual(0, server['progress'])
         self.assertEqual('server_test', server['name'])
@@ -1953,7 +1912,7 @@ class ServersTest(test.TestCase):
         print res
         self.assertEqual(res.status_int, 202)
         server = json.loads(res.body)['server']
-        self.assertEqual(1, server['id'])
+        self.assertEqual(FAKE_UUID, server['id'])
         self.assertTrue(server['config_drive'])
 
     def test_create_instance_with_config_drive_as_id_v1_1(self):
@@ -1985,7 +1944,7 @@ class ServersTest(test.TestCase):
 
         self.assertEqual(res.status_int, 202)
         server = json.loads(res.body)['server']
-        self.assertEqual(1, server['id'])
+        self.assertEqual(FAKE_UUID, server['id'])
         self.assertTrue(server['config_drive'])
         self.assertEqual(2, server['config_drive'])
 
@@ -2044,7 +2003,7 @@ class ServersTest(test.TestCase):
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 202)
         server = json.loads(res.body)['server']
-        self.assertEqual(1, server['id'])
+        self.assertEqual(FAKE_UUID, server['id'])
         self.assertFalse(server['config_drive'])
 
     def test_create_instance_v1_1_bad_href(self):
@@ -2307,11 +2266,11 @@ class ServersTest(test.TestCase):
         req.body = self.body
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 204)
-        self.assertEqual(mock_method.instance_id, '1')
+        self.assertEqual(mock_method.instance_uuid, FAKE_UUID)
         self.assertEqual(mock_method.password, 'bacon')
 
     def test_update_server_no_body_v1_1(self):
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 400)
@@ -2321,7 +2280,7 @@ class ServersTest(test.TestCase):
                 return_server_with_attributes(name='server_test',
                                               access_ipv4='0.0.0.0',
                                               access_ipv6='beef::0123'))
-        req = webob.Request.blank('/v1.1/123/servers/1')
+        req = webob.Request.blank('/v1.1/123/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         req.content_type = 'application/json'
         body = {'server': {
@@ -2333,7 +2292,7 @@ class ServersTest(test.TestCase):
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server_test')
         self.assertEqual(res_dict['server']['accessIPv4'], '0.0.0.0')
         self.assertEqual(res_dict['server']['accessIPv6'], 'beef::0123')
@@ -2341,40 +2300,40 @@ class ServersTest(test.TestCase):
     def test_update_server_name_v1_1(self):
         self.stubs.Set(nova.db.api, 'instance_get',
                 return_server_with_attributes(name='server_test'))
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         req.content_type = 'application/json'
         req.body = json.dumps({'server': {'name': 'server_test'}})
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server_test')
 
     def test_update_server_access_ipv4_v1_1(self):
         self.stubs.Set(nova.db.api, 'instance_get',
                 return_server_with_attributes(access_ipv4='0.0.0.0'))
-        req = webob.Request.blank('/v1.1/123/servers/1')
+        req = webob.Request.blank('/v1.1/123/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         req.content_type = 'application/json'
         req.body = json.dumps({'server': {'accessIPv4': '0.0.0.0'}})
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['accessIPv4'], '0.0.0.0')
 
     def test_update_server_access_ipv6_v1_1(self):
         self.stubs.Set(nova.db.api, 'instance_get',
                 return_server_with_attributes(access_ipv6='beef::0123'))
-        req = webob.Request.blank('/v1.1/123/servers/1')
+        req = webob.Request.blank('/v1.1/123/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         req.content_type = 'application/json'
         req.body = json.dumps({'server': {'accessIPv6': 'beef::0123'}})
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['accessIPv6'], 'beef::0123')
 
     def test_update_server_adminPass_ignored_v1_1(self):
@@ -2390,14 +2349,14 @@ class ServersTest(test.TestCase):
         self.stubs.Set(nova.db.api, 'instance_get',
                 return_server_with_attributes(name='server_test'))
 
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         req.method = 'PUT'
         req.content_type = "application/json"
         req.body = self.body
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 200)
         res_dict = json.loads(res.body)
-        self.assertEqual(res_dict['server']['id'], 1)
+        self.assertEqual(res_dict['server']['id'], FAKE_UUID)
         self.assertEqual(res_dict['server']['name'], 'server_test')
 
     def test_create_backup_schedules(self):
@@ -2423,7 +2382,8 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 501)
 
     def test_server_backup_schedule_deprecated_v1_1(self):
-        req = webob.Request.blank('/v1.1/fake/servers/1/backup_schedule')
+        uri = '/v1.1/fake/servers/%s/backup_schedule' % FAKE_UUID
+        req = webob.Request.blank(uri)
         res = req.get_response(fakes.wsgi_app())
         self.assertEqual(res.status_int, 404)
 
@@ -2481,7 +2441,7 @@ class ServersTest(test.TestCase):
         res_dict = json.loads(res.body)
 
         for i, s in enumerate(res_dict['servers']):
-            self.assertEqual(s['id'], i)
+            self.assertEqual(s['id'], FAKE_UUIDS[i])
             self.assertEqual(s['hostId'], '')
             self.assertEqual(s['name'], 'server%d' % i)
             self.assertEqual(s['image'], expected_image)
@@ -2498,7 +2458,8 @@ class ServersTest(test.TestCase):
         '''
 
         def return_servers_with_host(context, *args, **kwargs):
-            return [stub_instance(i, 'fake', 'fake', None, None, i % 2)
+            return [stub_instance(FAKE_UUID, 'fake', 'fake',
+                                  None, None, i % 2, id=i) \
                     for i in xrange(5)]
 
         self.stubs.Set(nova.db.api, 'instance_get_all_by_filters',
@@ -2660,7 +2621,7 @@ class ServersTest(test.TestCase):
         self.assertEqual(res.status_int, 422)
 
     def test_delete_server_instance_v1_1(self):
-        req = webob.Request.blank('/v1.1/fake/servers/1')
+        req = webob.Request.blank('/v1.1/fake/servers/%s' % FAKE_UUID)
         req.method = 'DELETE'
 
         self.server_delete_called = False
@@ -3840,8 +3801,7 @@ class ServersViewBuilderV11Test(test.TestCase):
     def test_build_server(self):
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "name": "test_server",
                 "links": [
                     {
@@ -3862,13 +3822,12 @@ class ServersViewBuilderV11Test(test.TestCase):
     def test_build_server_with_project_id(self):
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "name": "test_server",
                 "links": [
                     {
                         "rel": "self",
-                        "href": "http://localhost/v1.1/fake/servers/1",
+                        "href": "http://localhost/v1.1/fake/servers/%s" % FAKE_UUID,
                     },
                     {
                         "rel": "bookmark",
@@ -3887,8 +3846,7 @@ class ServersViewBuilderV11Test(test.TestCase):
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -3944,8 +3902,7 @@ class ServersViewBuilderV11Test(test.TestCase):
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4002,8 +3959,7 @@ class ServersViewBuilderV11Test(test.TestCase):
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4060,8 +4016,7 @@ class ServersViewBuilderV11Test(test.TestCase):
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4121,8 +4076,7 @@ class ServersViewBuilderV11Test(test.TestCase):
         flavor_bookmark = "http://localhost/flavors/1"
         expected_server = {
             "server": {
-                "id": 1,
-                "uuid": self.instance['uuid'],
+                "id": self.instance['uuid'],
                 "user_id": "fake",
                 "tenant_id": "fake",
                 "updated": "2010-11-11T11:00:00Z",
@@ -4271,10 +4225,9 @@ class ServerXMLSerializationTest(test.TestCase):
 
         fixture = {
             "server": {
-                "id": 1,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
-                "uuid": FAKE_UUID,
                 'created': self.TIMESTAMP,
                 'updated': self.TIMESTAMP,
                 "progress": 0,
@@ -4354,7 +4307,7 @@ class ServerXMLSerializationTest(test.TestCase):
         expected_uuid = FAKE_UUID
         server_dict = fixture['server']
 
-        for key in ['name', 'id', 'uuid', 'created', 'accessIPv4',
+        for key in ['name', 'id', 'created', 'accessIPv4',
                     'updated', 'progress', 'status', 'hostId',
                     'accessIPv6']:
             self.assertEqual(root.get(key), str(server_dict[key]))
@@ -4409,8 +4362,7 @@ class ServerXMLSerializationTest(test.TestCase):
 
         fixture = {
             "server": {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 'created': self.TIMESTAMP,
@@ -4492,7 +4444,7 @@ class ServerXMLSerializationTest(test.TestCase):
         expected_uuid = FAKE_UUID
         server_dict = fixture['server']
 
-        for key in ['name', 'id', 'uuid', 'created', 'accessIPv4',
+        for key in ['name', 'id', 'created', 'accessIPv4',
                     'updated', 'progress', 'status', 'hostId',
                     'accessIPv6', 'adminPass']:
             self.assertEqual(root.get(key), str(server_dict[key]))
@@ -4545,13 +4497,15 @@ class ServerXMLSerializationTest(test.TestCase):
     def test_index(self):
         serializer = servers.ServerXMLSerializer()
 
-        expected_server_href = 'http://localhost/v1.1/servers/1'
-        expected_server_bookmark = 'http://localhost/servers/1'
-        expected_server_href_2 = 'http://localhost/v1.1/servers/2'
-        expected_server_bookmark_2 = 'http://localhost/servers/2'
+        uuid1 = FAKE_UUIDS[1]
+        expected_server_href = 'http://localhost/v1.1/servers/%s' % uuid1
+        expected_server_bookmark = 'http://localhost/servers/%s' % uuid1
+        uuid2 = FAKE_UUIDS[2]
+        expected_server_href_2 = 'http://localhost/v1.1/servers/%s' % uuid2
+        expected_server_bookmark_2 = 'http://localhost/servers/%s' % uuid2
         fixture = {"servers": [
             {
-                "id": 1,
+                "id": uuid1,
                 "name": "test_server",
                 'links': [
                     {
@@ -4565,7 +4519,7 @@ class ServerXMLSerializationTest(test.TestCase):
                 ],
             },
             {
-                "id": 2,
+                "id": uuid2,
                 "name": "test_server_2",
                 'links': [
                     {
@@ -4600,8 +4554,8 @@ class ServerXMLSerializationTest(test.TestCase):
     def test_detail(self):
         serializer = servers.ServerXMLSerializer()
 
-        expected_server_href = 'http://localhost/v1.1/servers/1'
-        expected_server_bookmark = 'http://localhost/servers/1'
+        expected_server_href = 'http://localhost/v1.1/servers/%s' % FAKE_UUID
+        expected_server_bookmark = 'http://localhost/servers/%s' % FAKE_UUID
         expected_image_bookmark = self.IMAGE_BOOKMARK
         expected_flavor_bookmark = self.FLAVOR_BOOKMARK
         expected_now = self.TIMESTAMP
@@ -4611,8 +4565,7 @@ class ServerXMLSerializationTest(test.TestCase):
         expected_server_bookmark_2 = 'http://localhost/servers/2'
         fixture = {"servers": [
             {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 'created': self.TIMESTAMP,
@@ -4735,7 +4688,7 @@ class ServerXMLSerializationTest(test.TestCase):
         for i, server_elem in enumerate(server_elems):
             server_dict = fixture['servers'][i]
 
-            for key in ['name', 'id', 'uuid', 'created', 'accessIPv4',
+            for key in ['name', 'id', 'created', 'accessIPv4',
                         'updated', 'progress', 'status', 'hostId',
                         'accessIPv6']:
                 self.assertEqual(server_elem.get(key), str(server_dict[key]))
@@ -4790,10 +4743,9 @@ class ServerXMLSerializationTest(test.TestCase):
 
         fixture = {
             "server": {
-                "id": 1,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
-                "uuid": FAKE_UUID,
                 'created': self.TIMESTAMP,
                 'updated': self.TIMESTAMP,
                 "progress": 0,
@@ -4872,7 +4824,7 @@ class ServerXMLSerializationTest(test.TestCase):
         expected_uuid = FAKE_UUID
         server_dict = fixture['server']
 
-        for key in ['name', 'id', 'uuid', 'created', 'accessIPv4',
+        for key in ['name', 'id', 'created', 'accessIPv4',
                     'updated', 'progress', 'status', 'hostId',
                     'accessIPv6']:
             self.assertEqual(root.get(key), str(server_dict[key]))
@@ -4927,8 +4879,7 @@ class ServerXMLSerializationTest(test.TestCase):
 
         fixture = {
             "server": {
-                "id": 1,
-                "uuid": FAKE_UUID,
+                "id": FAKE_UUID,
                 "user_id": "fake",
                 "tenant_id": "fake",
                 'created': self.TIMESTAMP,
@@ -5009,7 +4960,7 @@ class ServerXMLSerializationTest(test.TestCase):
         expected_uuid = FAKE_UUID
         server_dict = fixture['server']
 
-        for key in ['name', 'id', 'uuid', 'created', 'accessIPv4',
+        for key in ['name', 'id', 'created', 'accessIPv4',
                     'updated', 'progress', 'status', 'hostId',
                     'accessIPv6', 'adminPass']:
             self.assertEqual(root.get(key), str(server_dict[key]))
