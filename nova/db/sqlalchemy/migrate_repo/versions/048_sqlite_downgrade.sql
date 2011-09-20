@@ -1,4 +1,33 @@
---BEGIN TRANSACTION;
+BEGIN TRANSACTION;
+
+-- START instance_actions
+ALTER TABLE instance_actions RENAME TO instance_actions_backup;
+
+CREATE TABLE instance_actions (
+    created_at DATETIME, 
+    updated_at DATETIME, 
+    deleted_at DATETIME, 
+    deleted BOOLEAN, 
+    id INTEGER NOT NULL, 
+    instance_id INTEGER,
+    action VARCHAR(255), 
+    error TEXT, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(instance_id) REFERENCES instances (id), 
+    CHECK (deleted IN (0, 1))
+);
+
+INSERT INTO instance_actions
+    SELECT * FROM instance_actions_backup;
+
+UPDATE instance_actions 
+    SET instance_id = (
+        SELECT id FROM instances WHERE uuid = instance_actions.instance_id
+    );
+
+DROP TABLE instance_actions_backup;
+-- END instance_actions
+
 
 -- START fixed_ips
 ALTER TABLE fixed_ips RENAME TO fixed_ips_backup;
@@ -203,4 +232,4 @@ UPDATE instance_metadata
 DROP TABLE instance_metadata_backup;
 -- END instance_metadata
 
---COMMIT;
+COMMIT;

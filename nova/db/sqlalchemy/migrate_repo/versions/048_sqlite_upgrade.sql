@@ -1,5 +1,34 @@
 BEGIN TRANSACTION;
 
+-- START instance_actions
+ALTER TABLE instance_actions RENAME TO instance_actions_backup;
+
+CREATE TABLE instance_actions (
+    created_at DATETIME, 
+    updated_at DATETIME, 
+    deleted_at DATETIME, 
+    deleted BOOLEAN, 
+    id INTEGER NOT NULL, 
+    instance_uuid VARCHAR(36), 
+    action VARCHAR(255), 
+    error TEXT, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(instance_uuid) REFERENCES instances (uuid), 
+    CHECK (deleted IN (0, 1))
+);
+
+INSERT INTO instance_actions
+    SELECT * FROM instance_actions_backup;
+
+UPDATE instance_actions 
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = instance_actions.instance_uuid
+    );
+
+DROP TABLE instance_actions_backup;
+-- END instance_actions
+
+
 -- START fixed_ips
 ALTER TABLE fixed_ips RENAME TO fixed_ips_backup;
 

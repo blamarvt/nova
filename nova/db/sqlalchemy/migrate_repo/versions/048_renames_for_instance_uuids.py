@@ -24,6 +24,7 @@ meta = sqlalchemy.MetaData()
 
 
 table_names = [
+    'instance_actions',
     'block_device_mapping',
     'fixed_ips',
     'security_group_instance_association',
