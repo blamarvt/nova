@@ -262,8 +262,6 @@ class ServersTest(test.TestCase):
         self.stubs.Set(nova.db.api, 'instance_get_all_by_filters',
                 return_servers)
         self.stubs.Set(nova.db.api, 'instance_get', return_server_by_id)
-        self.stubs.Set(nova.db, 'instance_get_by_uuid',
-                       return_server_by_uuid)
         self.stubs.Set(nova.db.api, 'instance_get_all_by_project',
                        return_servers)
         self.stubs.Set(nova.db.api, 'instance_add_security_group',
