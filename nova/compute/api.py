@@ -1483,6 +1483,6 @@ class API(base.Base):
         """Return instance uuid corresponding to the provided id"""
         uuids = self.db.instance_get_id_to_uuid_mapping(context, [instance_id])
         try:
-            return uuids[0]
+            return uuids[instance_id]
         except KeyError:
             raise exception.InstanceNotFound(instance_uuid=instance_id)

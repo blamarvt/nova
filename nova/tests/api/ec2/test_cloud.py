@@ -164,7 +164,7 @@ class CloudTestCase(test.TestCase):
         project_id = self.context.project_id
         type_id = inst['instance_type_id']
         ips = self.network.allocate_for_instance(self.context,
-                                                 instance_id=inst['id'],
+                                                 instance_uuid=inst['uuid'],
                                                  host=inst['host'],
                                                  vpn=None,
                                                  instance_type_id=type_id,

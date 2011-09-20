@@ -268,13 +268,13 @@ class reroute_compute(object):
 
     def _route_to_child_zones(self, context, collection, item_uuid):
         if not FLAGS.enable_zone_routing:
-            raise exception.InstanceNotFound(instance_id=item_uuid)
+            raise exception.InstanceNotFound(instance_uuid=item_uuid)
 
         self.item_uuid = item_uuid
 
         zones = db.zone_get_all(context)
         if not zones:
-            raise exception.InstanceNotFound(instance_id=item_uuid)
+            raise exception.InstanceNotFound(instance_uuid=item_uuid)
 
         # Ask the children to provide an answer ...
         LOG.debug(_("Asking child zones ..."))
@@ -312,14 +312,14 @@ class reroute_compute(object):
 
     def get_collection_context_and_id(self, args, kwargs):
         """Returns a tuple of (novaclient collection name, security
-           context and resource id. Derived class should override this."""
+           context and resource uuid. Derived class should override this."""
         context = kwargs.get('context', None)
-        instance_id = kwargs.get('instance_id', None)
+        instance_uuid = kwargs.get('instance_uuid', None)
         if len(args) > 0 and not context:
             context = args[1]
-        if len(args) > 1 and not instance_id:
-            instance_id = args[2]
-        return ("servers", context, instance_id)
+        if len(args) > 1 and not instance_uuid:
+            instance_uuid = args[2]
+        return ("servers", context, instance_uuid)
 
     @staticmethod
     def replace_uuid_with_id(args, kwargs, replacement_id):
@@ -360,7 +360,7 @@ class reroute_compute(object):
             return reduced_response[0]  # first for now.
         elif found_exception:
             raise found_exception
-        raise exception.InstanceNotFound(instance_id=self.item_uuid)
+        raise exception.InstanceNotFound(instance_uid=self.item_uuid)
 
 
 def redirect_handler(f):

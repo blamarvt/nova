@@ -925,8 +925,10 @@ class CloudController(object):
     def get_ajax_console(self, context, instance_id, **kwargs):
         ec2_id = instance_id[0]
         instance_id = ec2utils.ec2_id_to_id(ec2_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         return self.compute_api.get_ajax_console(context,
-                                                 instance_id=instance_id)
+                                                 instance_uuid=instance_uuid)
 
     def get_vnc_console(self, context, instance_id, **kwargs):
         """Returns vnc browser url.  Used by OS dashboard."""
@@ -1352,8 +1354,10 @@ class CloudController(object):
         LOG.audit(_("Associate address %(public_ip)s to"
                 " instance %(instance_id)s") % locals(), context=context)
         instance_id = ec2utils.ec2_id_to_id(instance_id)
+        instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                           instance_id)
         self.compute_api.associate_floating_ip(context,
-                                               instance_id=instance_id,
+                                               instance_uuid=instance_uuid,
                                                address=public_ip)
         return {'associateResponse': ["Address associated."]}
 
@@ -1402,19 +1406,25 @@ class CloudController(object):
         return self._format_run_instances(context,
                 reservation_id=instances[0]['reservation_id'])
 
-    def _do_instance(self, action, context, ec2_id):
-        instance_id = ec2utils.ec2_id_to_id(ec2_id)
-        action(context, instance_id=instance_id)
+    def _do_instance(self, action, context, instance_uuid):
+        action(context, instance_uuid=instance_uuid)
 
-    def _do_instances(self, action, context, instance_id):
-        for ec2_id in instance_id:
-            self._do_instance(action, context, ec2_id)
+    def _do_instances(self, action, context, instance_uuids):
+        for instance_uuid in instance_uuids:
+            self._do_instance(action, context, instance_uuid)
 
     def terminate_instances(self, context, instance_id, **kwargs):
         """Terminate each instance in instance_id, which is a list of ec2 ids.
         instance_id is a kwarg so its name cannot be modified."""
         LOG.debug(_("Going to start terminating instances"))
-        self._do_instances(self.compute_api.delete, context, instance_id)
+        ec2_id_list = instance_id
+        for ec2_id in ec2_id_list:
+            instance_id = ec2utils.ec2_id_to_id(ec2_id)
+            instance_uuid = self.compute_api.get_instance_uuid(context,
+                                                               instance_id)
+            self._do_instance(self.compute_api.delete,
+                               context,
+                               instance_uuid)
         return True
 
     def reboot_instances(self, context, instance_id, **kwargs):
