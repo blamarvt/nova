@@ -95,6 +95,7 @@ def stub_instance(uuid, metadata=None, image_ref="10", flavor_id="1",
         "access_ip_v6": "",
         "uuid": uuid,
         "virtual_interfaces": [],
+        "progress": 0,
     }
 
     instance["fixed_ips"] = {
