@@ -606,7 +606,7 @@ class VMOps(object):
         # better approximation would use the percentage of the VM image that
         # has been streamed to the destination host.
         progress = round(float(step) / total_steps * 100)
-        instance_uuid = instance['id']
+        instance_uuid = instance['uuid']
         LOG.debug(_("Updating instance '%(instance_uuid)s' progress to"
                     " %(progress)d") % locals())
         db.instance_update(context, instance_uuid, {'progress': progress})
