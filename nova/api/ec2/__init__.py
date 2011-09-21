@@ -399,8 +399,8 @@ class Executor(wsgi.Application):
         except exception.InstanceNotFound as ex:
             LOG.info(_('InstanceNotFound raised: %s'), unicode(ex),
                      context=context)
-            ec2_id = ec2utils.id_to_ec2_id(ex.kwargs['instance_id'])
-            message = ex.message % {'instance_id': ec2_id}
+            ec2_id = ec2utils.id_to_ec2_id(ex.kwargs['instance_uuid'])
+            message = ex.message % {'instance_uuid': ec2_id}
             return self._error(req, context, type(ex).__name__, message)
         except exception.VolumeNotFound as ex:
             LOG.info(_('VolumeNotFound raised: %s'), unicode(ex),

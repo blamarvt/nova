@@ -204,7 +204,7 @@ class QuantumTestCaseBase(object):
         instance_ref = db.api.instance_create(ctx,
                                     {"project_id": project_id})
         nw_info = self.net_man.allocate_for_instance(ctx,
-                        instance_id=instance_ref['id'], host="",
+                        instance_uuid=instance_ref['uuid'], host="",
                         instance_type_id=instance_ref['instance_type_id'],
                         project_id=project_id)
 
@@ -231,7 +231,7 @@ class QuantumTestCaseBase(object):
             nw_info[1][1]['ip6s'][0]['ip'].startswith("2001:1db8:"))
 
         self.net_man.deallocate_for_instance(ctx,
-                    instance_id=instance_ref['id'],
+                    instance_uuid=instance_ref['uuid'],
                     project_id=project_id)
 
         self._delete_nets()
@@ -249,7 +249,7 @@ class QuantumTestCaseBase(object):
         instance_ref = db.api.instance_create(ctx,
                                     {"project_id": project_id})
         nw_info = self.net_man.allocate_for_instance(ctx,
-                        instance_id=instance_ref['id'], host="",
+                        instance_uuid=instance_ref['uuid'], host="",
                         instance_type_id=instance_ref['instance_type_id'],
                         project_id=project_id,
                         requested_networks=requested_networks)
@@ -285,7 +285,7 @@ class QuantumTestCaseBase(object):
             nw_info[1][1]['ip6s'][0]['ip'].startswith("2001:1db9:"))
 
         self.net_man.deallocate_for_instance(ctx,
-                    instance_id=instance_ref['id'],
+                    instance_uuid=instance_ref['uuid'],
                     project_id=project_id)
 
         self._delete_nets()

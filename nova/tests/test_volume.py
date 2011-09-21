@@ -45,10 +45,10 @@ class VolumeTestCase(test.TestCase):
         self.flags(connection_type='fake')
         self.volume = utils.import_object(FLAGS.volume_manager)
         self.context = context.get_admin_context()
-        self.instance_id = db.instance_create(self.context, {})['id']
+        self.instance_uuid = db.instance_create(self.context, {})['uuid']
 
     def tearDown(self):
-        db.instance_destroy(self.context, self.instance_id)
+        db.instance_destroy(self.context, self.instance_uuid)
         super(VolumeTestCase, self).tearDown()
 
     @staticmethod
@@ -135,16 +135,16 @@ class VolumeTestCase(test.TestCase):
         inst['project_id'] = 'fake'
         inst['instance_type_id'] = '2'  # m1.tiny
         inst['ami_launch_index'] = 0
-        instance_id = db.instance_create(self.context, inst)['id']
+        instance_uuid = db.instance_create(self.context, inst)['uuid']
         mountpoint = "/dev/sdf"
         volume_id = self._create_volume()
         self.volume.create_volume(self.context, volume_id)
         if FLAGS.fake_tests:
-            db.volume_attached(self.context, volume_id, instance_id,
+            db.volume_attached(self.context, volume_id, instance_uuid,
                                mountpoint)
         else:
             self.compute.attach_volume(self.context,
-                                       instance_id,
+                                       instance_uuid,
                                        volume_id,
                                        mountpoint)
         vol = db.volume_get(context.get_admin_context(), volume_id)
@@ -152,7 +152,7 @@ class VolumeTestCase(test.TestCase):
         self.assertEqual(vol['attach_status'], "attached")
         self.assertEqual(vol['mountpoint'], mountpoint)
         instance_ref = db.volume_get_instance(self.context, volume_id)
-        self.assertEqual(instance_ref['id'], instance_id)
+        self.assertEqual(instance_ref['uuid'], instance_uuid)
 
         self.assertRaises(exception.Error,
                           self.volume.delete_volume,
@@ -162,7 +162,7 @@ class VolumeTestCase(test.TestCase):
             db.volume_detached(self.context, volume_id)
         else:
             self.compute.detach_volume(self.context,
-                                       instance_id,
+                                       instance_uuid,
                                        volume_id)
         vol = db.volume_get(self.context, volume_id)
         self.assertEqual(vol['status'], "available")
@@ -172,7 +172,7 @@ class VolumeTestCase(test.TestCase):
                           db.volume_get,
                           self.context,
                           volume_id)
-        db.instance_destroy(self.context, instance_id)
+        db.instance_destroy(self.context, instance_uuid)
 
     def test_concurrent_volumes_get_different_targets(self):
         """Ensure multiple concurrent volumes get different targets."""
@@ -239,7 +239,7 @@ class VolumeTestCase(test.TestCase):
 
         volume_id = self._create_volume()
         self.volume.create_volume(self.context, volume_id)
-        db.volume_attached(self.context, volume_id, self.instance_id,
+        db.volume_attached(self.context, volume_id, self.instance_uuid,
                            '/dev/sda1')
 
         volume_api = volume.api.API()
@@ -278,7 +278,7 @@ class DriverTestCase(test.TestCase):
         log.addHandler(logging.StreamHandler(self.stream))
 
         inst = {}
-        self.instance_id = db.instance_create(self.context, inst)['id']
+        self.instance_uuid = db.instance_create(self.context, inst)['uuid']
 
     def tearDown(self):
         super(DriverTestCase, self).tearDown()
@@ -318,7 +318,7 @@ class AOETestCase(DriverTestCase):
 
             # each volume has a different mountpoint
             mountpoint = "/dev/sd" + chr((ord('b') + index))
-            db.volume_attached(self.context, volume_id, self.instance_id,
+            db.volume_attached(self.context, volume_id, self.instance_uuid,
                                mountpoint)
 
             (shelf_id, blade_id) = db.volume_get_shelf_and_blade(self.context,
@@ -333,7 +333,7 @@ class AOETestCase(DriverTestCase):
     def test_check_for_export_with_no_volume(self):
         """No log message when no volume is attached to an instance."""
         self.stream.truncate(0)
-        self.volume.check_for_export(self.context, self.instance_id)
+        self.volume.check_for_export(self.context, self.instance_uuid)
         self.assertEqual(self.stream.getvalue(), '')
 
     def test_check_for_export_with_all_vblade_processes(self):
@@ -341,7 +341,7 @@ class AOETestCase(DriverTestCase):
         volume_id_list = self._attach_volume()
 
         self.stream.truncate(0)
-        self.volume.check_for_export(self.context, self.instance_id)
+        self.volume.check_for_export(self.context, self.instance_uuid)
         self.assertEqual(self.stream.getvalue(), '')
 
         self._detach_volume(volume_id_list)
@@ -359,7 +359,7 @@ class AOETestCase(DriverTestCase):
         msg_is_match = False
         self.stream.truncate(0)
         try:
-            self.volume.check_for_export(self.context, self.instance_id)
+            self.volume.check_for_export(self.context, self.instance_uuid)
         except exception.ProcessExecutionError, e:
             volume_id = volume_id_list[0]
             msg = _("Cannot confirm exported volume id:%(volume_id)s. "
@@ -395,7 +395,7 @@ class ISCSITestCase(DriverTestCase):
 
             # each volume has a different mountpoint
             mountpoint = "/dev/sd" + chr((ord('b') + index))
-            db.volume_attached(self.context, vol_ref['id'], self.instance_id,
+            db.volume_attached(self.context, vol_ref['id'], self.instance_uuid,
                                mountpoint)
             volume_id_list.append(vol_ref['id'])
 
@@ -404,7 +404,7 @@ class ISCSITestCase(DriverTestCase):
     def test_check_for_export_with_no_volume(self):
         """No log message when no volume is attached to an instance."""
         self.stream.truncate(0)
-        self.volume.check_for_export(self.context, self.instance_id)
+        self.volume.check_for_export(self.context, self.instance_uuid)
         self.assertEqual(self.stream.getvalue(), '')
 
     def test_check_for_export_with_all_volume_exported(self):
@@ -420,7 +420,7 @@ class ISCSITestCase(DriverTestCase):
 
         self.stream.truncate(0)
         self.mox.ReplayAll()
-        self.volume.check_for_export(self.context, self.instance_id)
+        self.volume.check_for_export(self.context, self.instance_uuid)
         self.assertEqual(self.stream.getvalue(), '')
         self.mox.UnsetStubs()
 
@@ -443,7 +443,7 @@ class ISCSITestCase(DriverTestCase):
         self.assertRaises(exception.ProcessExecutionError,
                           self.volume.check_for_export,
                           self.context,
-                          self.instance_id)
+                          self.instance_uuid)
         msg = _("Cannot confirm exported volume id:%s.") % volume_id_list[0]
         self.assertTrue(0 <= self.stream.getvalue().find(msg))
         self.mox.UnsetStubs()

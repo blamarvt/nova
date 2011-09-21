@@ -46,6 +46,8 @@ LOG = logging.getLogger('nova.tests.test_xenapi')
 
 FLAGS = flags.FLAGS
 
+FAKE_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+
 
 def stub_vm_utils_with_vdi_attached_here(function, should_return=True):
     """
@@ -77,6 +79,7 @@ class XenAPIVolumeTestCase(test.TestCase):
         stubs.stub_out_get_target(self.stubs)
         xenapi_fake.reset()
         self.values = {'id': 1,
+                  'uuid': FAKE_UUID,
                   'project_id': self.user_id,
                   'user_id': 'fake',
                   'image_ref': 1,
@@ -265,12 +268,12 @@ class XenAPIVMTestCase(test.TestCase):
 
         check()
 
-    def create_vm_record(self, conn, os_type, instance_id=1):
+    def create_vm_record(self, conn, os_type, instance_uuid=FAKE_UUID):
         instances = conn.list_instances()
-        self.assertEquals(instances, [str(instance_id)])
+        self.assertEquals(instances, [instance_uuid])
 
         # Get Nova record for VM
-        vm_info = conn.get_info(instance_id)
+        vm_info = conn.get_info(instance_uuid)
         # Get XenAPI record for VM
         vms = [rec for ref, rec
                in xenapi_fake.get_all_records('VM').iteritems()
@@ -364,12 +367,14 @@ class XenAPIVMTestCase(test.TestCase):
 
     def _test_spawn(self, image_ref, kernel_id, ramdisk_id,
                     instance_type_id="3", os_type="linux",
-                    hostname="test", architecture="x86-64", instance_id=1,
+                    hostname="test", architecture="x86-64",
+                    instance_uuid=FAKE_UUID,
                     check_injection=False,
                     create_record=True, empty_dns=False):
         stubs.stubout_loopingcall_start(self.stubs)
         if create_record:
-            values = {'id': instance_id,
+            values = {'id': 1,
+                      'uuid': instance_uuid,
                       'project_id': self.project_id,
                       'user_id': self.user_id,
                       'image_ref': image_ref,
@@ -381,7 +386,7 @@ class XenAPIVMTestCase(test.TestCase):
                       'architecture': architecture}
             instance = db.instance_create(self.context, values)
         else:
-            instance = db.instance_get(self.context, instance_id)
+            instance = db.instance_get(self.context, instance_uuid)
         network_info = [({'bridge': 'fa0', 'id': 0, 'injected': True},
                           {'broadcast': '192.168.0.255',
                            'dns': ['192.168.0.1'],
@@ -400,7 +405,7 @@ class XenAPIVMTestCase(test.TestCase):
             network_info[0][1]['dns'] = []
 
         self.conn.spawn(self.context, instance, network_info)
-        self.create_vm_record(self.conn, os_type, instance_id)
+        self.create_vm_record(self.conn, os_type, instance_uuid)
         self.check_vm_record(self.conn, check_injection)
         self.assertTrue(instance.os_type)
         self.assertTrue(instance.architecture)
@@ -590,7 +595,7 @@ class XenAPIVMTestCase(test.TestCase):
             self.network.set_network_host(ctxt, network)
 
         self.network.allocate_for_instance(ctxt,
-                                           instance_id=2,
+                                           instance_uuid=FAKE_UUID,
                                            host=FLAGS.host,
                                            vpn=None,
                                            instance_type_id=1,
@@ -598,7 +603,7 @@ class XenAPIVMTestCase(test.TestCase):
         self._test_spawn(glance_stubs.FakeGlance.IMAGE_MACHINE,
                          glance_stubs.FakeGlance.IMAGE_KERNEL,
                          glance_stubs.FakeGlance.IMAGE_RAMDISK,
-                         instance_id=2,
+                         instance_uuid=FAKE_UUID,
                          create_record=False)
         # TODO(salvatore-orlando): a complete test here would require
         # a check for making sure the bridge for the VM's VIF is
@@ -641,11 +646,12 @@ class XenAPIVMTestCase(test.TestCase):
         conn.revert_migration(instance)
         self.assertTrue(conn._vmops.revert_migration_called)
 
-    def _create_instance(self, instance_id=1, spawn=True):
+    def _create_instance(self, instance_uuid=FAKE_UUID, spawn=True):
         """Creates and spawns a test instance."""
         stubs.stubout_loopingcall_start(self.stubs)
         values = {
-            'id': instance_id,
+            'id': 1,
+            'uuid': instance_uuid,
             'project_id': self.project_id,
             'user_id': self.user_id,
             'image_ref': 1,
@@ -733,6 +739,7 @@ class XenAPIMigrateInstance(test.TestCase):
         self.project_id = 'fake'
         self.context = context.RequestContext(self.user_id, self.project_id)
         self.values = {'id': 1,
+                  'uuid': FAKE_UUID,
                   'project_id': self.project_id,
                   'user_id': self.user_id,
                   'image_ref': 1,

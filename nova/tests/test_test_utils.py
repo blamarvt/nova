@@ -32,7 +32,7 @@ class TestUtilsTestCase(test.TestCase):
         """get_test_instance's return value looks like an instance_ref"""
         instance_ref = test_utils.get_test_instance()
         ctxt = test_utils.get_test_admin_context()
-        db.instance_get(ctxt, instance_ref['id'])
+        db.instance_get(ctxt, instance_ref['uuid'])
 
     def _test_get_test_network_info(self):
         """Does the return value match a real network_info structure"""

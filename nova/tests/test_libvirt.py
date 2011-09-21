@@ -43,6 +43,8 @@ from nova.tests import fake_network
 libvirt = None
 FLAGS = flags.FLAGS
 
+FAKE_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+
 _fake_network_info = fake_network.fake_get_instance_nw_info
 _ipv4_like = fake_network.ipv4_like
 
@@ -1348,11 +1350,12 @@ class NWFilterTestCase(test.TestCase):
 
         return db.security_group_get_by_name(self.context, 'fake', 'testgroup')
 
-    def _create_instance(self):
-        return db.instance_create(self.context,
-                                  {'user_id': 'fake',
-                                   'project_id': 'fake',
-                                   'instance_type_id': 1})
+    def _create_instance(self, **params):
+        values = {'user_id': 'fake',
+                  'project_id': 'fake',
+                  'instance_type_id': 1}
+        values.update(params)
+        return db.instance_create(self.context, values)
 
     def _create_instance_type(self, params=None):
         """Create a test instance"""
@@ -1449,15 +1452,15 @@ class NWFilterTestCase(test.TestCase):
         self.fw._conn.nwfilterDefineXML = fakefilter.filterDefineXMLMock
         self.fw._conn.nwfilterLookupByName = fakefilter.nwfilterLookupByName
 
-        instance_ref = self._create_instance()
-        inst_id = instance_ref['id']
+        instance_ref = self._create_instance(uuid=FAKE_UUID)
+        inst_uuid = instance_ref['uuid']
 
         self.security_group = self.setup_and_return_security_group()
 
-        db.instance_add_security_group(self.context, inst_id,
+        db.instance_add_security_group(self.context, inst_uuid,
                                        self.security_group.id)
 
-        instance = db.instance_get(self.context, inst_id)
+        instance = db.instance_get(self.context, inst_uuid)
 
         network_info = _fake_network_info(self.stubs, 1)
         self.fw.setup_basic_filtering(instance, network_info)
@@ -1469,4 +1472,4 @@ class NWFilterTestCase(test.TestCase):
         # should undefine 2 filters: instance and instance-secgroup
         self.assertEqual(original_filter_count - len(fakefilter.filters), 2)
 
-        db.instance_destroy(admin_ctxt, instance_ref['id'])
+        db.instance_destroy(admin_ctxt, instance_ref['uuid'])

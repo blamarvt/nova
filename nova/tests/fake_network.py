@@ -91,15 +91,15 @@ class FakeNetworkManager(network_manager.NetworkManager):
                       {'address': '172.16.1.2'},
                       {'address': '173.16.1.2'}]
 
-            vifs = [{'instance_id': 0,
+            vifs = [{'instance_uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
                      'fixed_ipv6': '2001:db8::dcad:beff:feef:1',
                      'fixed_ips': [{'address': '172.16.0.1',
                                     'floating_ips': [floats[0]]}]},
-                    {'instance_id': 20,
+                    {'instance_uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac',
                      'fixed_ipv6': '2001:db8::dcad:beff:feef:2',
                      'fixed_ips': [{'address': '172.16.0.2',
                                     'floating_ips': [floats[1]]}]},
-                    {'instance_id': 30,
+                    {'instance_uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad',
                      'fixed_ipv6': '2002:db8::dcad:beff:feef:2',
                      'fixed_ips': [{'address': '173.16.0.2',
                                     'floating_ips': [floats[2]]}]}]
@@ -171,7 +171,7 @@ def vifs(n):
                'uuid': '00000000-0000-0000-0000-00000000000000%02d' % x,
                'network_id': x,
                'network': FakeModel(**fake_network(x)),
-               'instance_id': 0}
+               'instance_uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab'}
 
 
 def floating_ip_ids():
@@ -195,7 +195,7 @@ def next_fixed_ip(network_id, num_floating_ips=0):
     return {'id': next_id,
             'network_id': network_id,
             'address': '192.168.%d.1%02d' % (network_id, next_id),
-            'instance_id': 0,
+            'instance_uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab',
             'allocated': False,
             # and since network_id and vif_id happen to be equivalent
             'virtual_interface_id': network_id,

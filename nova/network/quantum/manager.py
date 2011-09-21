@@ -135,11 +135,11 @@ class QuantumManager(manager.FlatManager):
            create a port and attachment the vNIC, and use the IPAM
            lib to allocate IP addresses.
         """
-        instance_id = kwargs.pop('instance_id')
+        instance_uuid = kwargs.pop('instance_uuid')
         instance_type_id = kwargs['instance_type_id']
         host = kwargs.pop('host')
         project_id = kwargs.pop('project_id')
-        LOG.debug(_("network allocations for instance %s"), instance_id)
+        LOG.debug(_("network allocations for instance %s"), instance_uuid)
 
         requested_networks = kwargs.get('requested_networks')
 
@@ -167,7 +167,7 @@ class QuantumManager(manager.FlatManager):
                                                  quantum_net_id)
 
             vif_rec = manager.FlatManager.add_virtual_interface(self,
-                                  context, instance_id, network_ref['id'])
+                                  context, instance_uuid, network_ref['id'])
 
             # talk to Quantum API to create and attach port.
             q_tenant_id = project_id or FLAGS.quantum_default_tenant_id
@@ -176,10 +176,10 @@ class QuantumManager(manager.FlatManager):
             self.ipam.allocate_fixed_ip(context, project_id, quantum_net_id,
                                         vif_rec)
 
-        return self.get_instance_nw_info(context, instance_id,
+        return self.get_instance_nw_info(context, instance_uuid,
                                          instance_type_id, host)
 
-    def get_instance_nw_info(self, context, instance_id,
+    def get_instance_nw_info(self, context, instance_uuid,
                                 instance_type_id, host):
         """This method is used by compute to fetch all network data
            that should be used when creating the VM.
@@ -194,12 +194,12 @@ class QuantumManager(manager.FlatManager):
            in the future.
         """
         network_info = []
-        instance = db.instance_get(context, instance_id)
+        instance = db.instance_get(context, instance_uuid)
         project_id = instance.project_id
 
         admin_context = context.elevated()
         vifs = db.virtual_interface_get_by_instance(admin_context,
-                                                    instance_id)
+                                                    instance_uuid)
         for vif in vifs:
             q_tenant_id = project_id
             ipam_tenant_id = project_id
@@ -274,12 +274,12 @@ class QuantumManager(manager.FlatManager):
            clear the IP allocation using the IPAM.  Finally, remove
            the virtual interfaces from the Nova DB.
         """
-        instance_id = kwargs.get('instance_id')
+        instance_uuid = kwargs.get('instance_uuid')
         project_id = kwargs.pop('project_id', None)
 
         admin_context = context.elevated()
         vifs = db.virtual_interface_get_by_instance(admin_context,
-                                                    instance_id)
+                                                    instance_uuid)
         for vif_ref in vifs:
             interface_id = vif_ref['uuid']
             q_tenant_id = project_id
@@ -303,10 +303,10 @@ class QuantumManager(manager.FlatManager):
 
         try:
             db.virtual_interface_delete_by_instance(admin_context,
-                                                    instance_id)
+                                                    instance_uuid)
         except exception.InstanceNotFound:
             LOG.error(_("Attempted to deallocate non-existent instance: %s" %
-                        (instance_id)))
+                        (instance_uuid)))
 
     def validate_networks(self, context, networks):
         """Validates that this tenant has quantum networks with the associated

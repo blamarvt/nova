@@ -43,6 +43,7 @@ class MetadataTestCase(test.TestCase):
     def setUp(self):
         super(MetadataTestCase, self).setUp()
         self.instance = ({'id': 1,
+                         'uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
                          'project_id': 'test',
                          'key_name': None,
                          'host': 'test',

@@ -49,7 +49,7 @@ def stubout_instance_snapshot(stubs):
 
     stubs.Set(xenapi_conn, '_parse_xmlrpc_value', fake_parse_xmlrpc_value)
 
-    def fake_wait_for_vhd_coalesce(session, instance_id, sr_ref, vdi_ref,
+    def fake_wait_for_vhd_coalesce(session, instance_uuid, sr_ref, vdi_ref,
                               original_parent_uuid):
         #TODO(sirp): Should we actually fake out the data here
         return "fakeparent"
