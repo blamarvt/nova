@@ -113,7 +113,7 @@ class ExecutorTestCase(test.TestCase):
 
     def test_instance_not_found(self):
         def not_found(context):
-            raise exception.InstanceNotFound(instance_id=5)
+            raise exception.InstanceNotFound(instance_uuid=5)
         result = self._execute(not_found)
         self.assertIn('i-00000005', self._extract_message(result))
 

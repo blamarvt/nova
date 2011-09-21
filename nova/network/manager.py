@@ -446,11 +446,6 @@ class NetworkManager(manager.SchedulerDependentManager):
                                         'ip': floating_ip['address']})
                         continue
 
-        # NOTE(jkoelker) Until we switch over to instance_uuid ;)
-        ids = [res['instance_uuid'] for res in results]
-        uuid_map = self.db.instance_get_id_to_uuid_mapping(context, ids)
-        for res in results:
-            res['instance_uuid'] = uuid_map.get(res['instance_uuid'])
         return results
 
     def _get_networks_for_instance(self, context, instance_uuid, project_id,

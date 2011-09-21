@@ -1034,11 +1034,11 @@ class ComputeTestCase(test.TestCase):
                        db.instance_get_id_to_uuid_mapping)
 
         instance_uuid1 = self._create_instance({'display_name': 'woot',
-                                                'id': 0})
+                'uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab'})
         instance_uuid2 = self._create_instance({'display_name': 'woo',
-                                                'id': 20})
+                'uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac'})
         instance_uuid3 = self._create_instance({'display_name': 'not-woot',
-                                                'id': 30})
+                'uuid': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad'})
 
         # ip ends up matching 2nd octet here.. so all 3 match ip
         # but 'name' only matches one

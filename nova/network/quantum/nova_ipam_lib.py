@@ -119,7 +119,7 @@ class QuantumNovaIPAMLib(object):
         if network['cidr']:
             address = db.fixed_ip_associate_pool(admin_context,
                                                  network['id'],
-                                                 vif_rec['instance_id'])
+                                                 vif_rec['instance_uuid'])
             values = {'allocated': True,
                       'virtual_interface_id': vif_rec['id']}
             db.fixed_ip_update(admin_context, address, values)
