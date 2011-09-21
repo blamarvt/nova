@@ -28,7 +28,8 @@ from novaclient import exceptions as novaclient_exceptions
 
 from mox import IgnoreArg
 from nova import context
-from nova import db
+from nova.db import api as db
+from nova.db.sqlalchemy import models
 from nova import exception
 from nova import flags
 from nova import service
@@ -196,7 +197,7 @@ class ZoneSchedulerTestCase(test.TestCase):
         self.flags(scheduler_driver='nova.scheduler.zone.ZoneScheduler')
 
     def _create_service_model(self, **kwargs):
-        service = db.sqlalchemy.models.Service()
+        service = models.Service()
         service.host = kwargs['host']
         service.disabled = False
         service.deleted = False
@@ -449,9 +450,11 @@ class SimpleDriverTestCase(test.TestCase):
         instance_ids2 = []
         for index in xrange(FLAGS.max_cores):
             instance_id = self._create_instance()
+            print instance_id
             compute1.run_instance(self.context, instance_id)
             instance_ids1.append(instance_id)
             instance_id = self._create_instance()
+            print instance_id
             compute2.run_instance(self.context, instance_id)
             instance_ids2.append(instance_id)
         instance_id = self._create_instance()

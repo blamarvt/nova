@@ -24,7 +24,7 @@ Availability Zone Scheduler implementation
 import random
 
 from nova.scheduler import driver
-from nova import db
+import nova.db.api
 
 
 class ZoneScheduler(driver.Scheduler):
@@ -38,7 +38,7 @@ class ZoneScheduler(driver.Scheduler):
         if zone is None:
             return self.hosts_up(context, topic)
 
-        services = db.service_get_all_by_topic(context, topic)
+        services = nova.db.api.service_get_all_by_topic(context, topic)
         return [service.host
                 for service in services
                 if self.service_is_up(service)

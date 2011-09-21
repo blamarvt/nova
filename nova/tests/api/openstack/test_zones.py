@@ -18,7 +18,7 @@ import stubout
 import webob
 import json
 
-import nova.db
+import nova.db.api
 from nova import context
 from nova import crypto
 from nova import flags
@@ -98,10 +98,10 @@ class ZonesTest(test.TestCase):
         fakes.stub_out_networking(self.stubs)
         fakes.stub_out_rate_limiting(self.stubs)
 
-        self.stubs.Set(nova.db, 'zone_get', zone_get)
-        self.stubs.Set(nova.db, 'zone_update', zone_update)
-        self.stubs.Set(nova.db, 'zone_create', zone_create)
-        self.stubs.Set(nova.db, 'zone_delete', zone_delete)
+        self.stubs.Set(nova.db.api, 'zone_get', zone_get)
+        self.stubs.Set(nova.db.api, 'zone_update', zone_update)
+        self.stubs.Set(nova.db.api, 'zone_create', zone_create)
+        self.stubs.Set(nova.db.api, 'zone_delete', zone_delete)
 
     def test_get_zone_list_scheduler(self):
         self.stubs.Set(api, '_call_scheduler', zone_get_all_scheduler)
@@ -114,7 +114,7 @@ class ZonesTest(test.TestCase):
 
     def test_get_zone_list_db(self):
         self.stubs.Set(api, '_call_scheduler', zone_get_all_scheduler_empty)
-        self.stubs.Set(nova.db, 'zone_get_all', zone_get_all_db)
+        self.stubs.Set(nova.db.api, 'zone_get_all', zone_get_all_db)
         req = webob.Request.blank('/v1.0/zones')
         req.headers["Content-Type"] = "application/json"
         res = req.get_response(fakes.wsgi_app())

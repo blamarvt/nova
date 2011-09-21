@@ -998,9 +998,9 @@ class ComputeTestCase(test.TestCase):
         self.flags(instance_name_template='instance-%s')
 
         c = context.get_admin_context()
-        instance_uuid1 = self._create_instance({'id': 1})
-        instance_uuid2 = self._create_instance({'id': 2})
-        instance_uuid3 = self._create_instance({'id': 10})
+        instance_uuid1 = self._create_instance({'uuid': '1'})
+        instance_uuid2 = self._create_instance({'uuid': '2'})
+        instance_uuid3 = self._create_instance({'uuid': '10'})
 
         instances = self.compute_api.get_all(c,
                 search_opts={'instance_name': 'instance.*'})

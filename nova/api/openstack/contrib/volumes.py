@@ -200,8 +200,8 @@ def _translate_attachment_summary_view(_context, vol):
     d['id'] = volume_id
 
     d['volumeId'] = volume_id
-    if vol.get('instance_id'):
-        d['serverId'] = vol['instance_id']
+    if vol.get('instance_uuid'):
+        d['serverId'] = vol['instance_uuid']
     if vol.get('mountpoint'):
         d['device'] = vol['mountpoint']
 
@@ -245,8 +245,8 @@ class VolumeAttachmentController(object):
             LOG.debug("volume_id not found")
             return faults.Fault(exc.HTTPNotFound())
 
-        if str(vol['instance_id']) != server_id:
-            LOG.debug("instance_id != server_id")
+        if str(vol['instance_uuid']) != server_id:
+            LOG.debug("instance_uuid != server_id")
             return faults.Fault(exc.HTTPNotFound())
 
         return {'volumeAttachment': _translate_attachment_detail_view(context,
@@ -259,7 +259,7 @@ class VolumeAttachmentController(object):
         if not body:
             return faults.Fault(exc.HTTPUnprocessableEntity())
 
-        instance_id = server_id
+        instance_uuid = server_id
         volume_id = body['volumeAttachment']['volumeId']
         device = body['volumeAttachment']['device']
 
@@ -269,7 +269,7 @@ class VolumeAttachmentController(object):
 
         try:
             self.compute_api.attach_volume(context,
-                                           instance_id=instance_id,
+                                           instance_uuid=instance_uuid,
                                            volume_id=volume_id,
                                            device=device)
         except exception.NotFound:
@@ -307,8 +307,8 @@ class VolumeAttachmentController(object):
         except exception.NotFound:
             return faults.Fault(exc.HTTPNotFound())
 
-        if str(vol['instance_id']) != server_id:
-            LOG.debug("instance_id != server_id")
+        if str(vol['instance_uuid']) != server_id:
+            LOG.debug("instance_uuid != server_id")
             return faults.Fault(exc.HTTPNotFound())
 
         self.compute_api.detach_volume(context,
