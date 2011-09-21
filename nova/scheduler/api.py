@@ -20,7 +20,7 @@ Handles all requests relating to schedulers.
 from novaclient import v1_1 as novaclient
 from novaclient import exceptions as novaclient_exceptions
 
-from nova.db import api as db
+from nova import db
 from nova import exception
 from nova import flags
 from nova import log as logging
@@ -252,15 +252,11 @@ class reroute_compute(object):
 
     The steps involved are:
 
-        1. Validate that item_id is UUID like
+        1. Lookup item by UUID in the zone local database
 
-        2. Lookup item by UUID in the zone local database
+        2. If the item was found, pass UUID to the wrapped method.
 
-        3. If the item was found, then extract integer ID, and pass that to
-           the wrapped method. (This ensures that zone-local code can
-           continue to use integer IDs).
-
-        4. If the item was not found, we delegate the call to a child zone
+        3. If the item was not found, we delegate the call to a child zone
            using the UUID.
     """
     def __init__(self, method_name):
@@ -289,17 +285,14 @@ class reroute_compute(object):
         def wrapped_f(*args, **kwargs):
             collection, context, item_uuid = \
                             self.get_collection_context_and_id(args, kwargs)
-
             try:
                 instance = db.instance_get(context, item_uuid)
-            except exception.InstanceNotFound, e:
-                # NOTE(sirp): since a UUID was passed in, we can attempt
-                # to reroute to a child zone
-                msg = _("Instance %(item_uuid)s not found ""locally: '%(e)s'")
-                LOG.debug(msg % locals())
-
-                return self._route_to_child_zones(context, collection,
-                        item_uuid)
+            except exception.InstanceNotFound:
+                LOG.debug(_("Instance %(item_uuid)s not found locally. "
+                            " Checking child zones." % locals()))
+                return self._route_to_child_zones(context,
+                                                  collection,
+                                                  item_uuid)
             else:
                 return f(*args, **kwargs)
 

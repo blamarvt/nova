@@ -185,8 +185,8 @@ class SchedulerTestCase(test.TestCase):
         self.assertTrue(c1 and c2 and c3 and c4 and c5)
 
         db.service_destroy(ctxt, s_ref['id'])
-        db.instance_destroy(ctxt, i_ref1['id'])
-        db.instance_destroy(ctxt, i_ref2['id'])
+        db.instance_destroy(ctxt, i_ref1['uuid'])
+        db.instance_destroy(ctxt, i_ref2['uuid'])
 
 
 class ZoneSchedulerTestCase(test.TestCase):
@@ -233,12 +233,12 @@ class ZoneSchedulerTestCase(test.TestCase):
         rpc.cast(ctxt,
                  'compute.host1',
                  {'method': 'run_instance',
-                  'args': {'instance_id': 'i-ffffffff',
+                  'args': {'instance_uuid': 'i-ffffffff',
                            'availability_zone': 'zone1'}})
         self.mox.ReplayAll()
         scheduler.run_instance(ctxt,
                                'compute',
-                               instance_id='i-ffffffff',
+                               instance_uuid='i-ffffffff',
                                availability_zone='zone1')
 
 
@@ -253,9 +253,6 @@ class SimpleDriverTestCase(test.TestCase):
                    network_manager='nova.network.manager.FlatManager',
                    volume_driver='nova.volume.driver.FakeISCSIDriver',
                    scheduler_driver='nova.scheduler.simple.SimpleScheduler')
-
-        self.stubs.Set(db, 'instance_get', fake_instance_get)
-
         self.scheduler = manager.SchedulerManager()
         self.context = context.get_admin_context()
         self.user_id = 'fake'
@@ -281,7 +278,7 @@ class SimpleDriverTestCase(test.TestCase):
         inst['vm_state'] = kwargs.get('vm_state', vm_states.ACTIVE)
         inst['task_state'] = kwargs.get('task_state', None)
         inst['power_state'] = kwargs.get('power_state', power_state.RUNNING)
-        return db.instance_create(self.context, inst)['id']
+        return db.instance_create(self.context, inst)['uuid']
 
     def _create_volume(self):
         """Create a test volume"""
@@ -641,9 +638,9 @@ class SimpleDriverTestCase(test.TestCase):
 
         """
 
-        instance_id = self._create_instance()
-        i_ref = db.instance_get(self.context, instance_id)
-        dic = {'instance_id': instance_id, 'size': 1}
+        instance_uuid = self._create_instance()
+        i_ref = db.instance_get(self.context, instance_uuid)
+        dic = {'instance_uuid': instance_uuid, 'size': 1}
         v_ref = db.volume_create(self.context, dic)
 
         # cannot check 2nd argument b/c the addresses of instance object
@@ -659,7 +656,7 @@ class SimpleDriverTestCase(test.TestCase):
         driver_i._live_migration_common_check(nocare, nocare,
                                               i_ref['host'], False)
         self.mox.StubOutWithMock(rpc, 'cast', use_mock_anything=True)
-        kwargs = {'instance_id': instance_id, 'dest': i_ref['host'],
+        kwargs = {'instance_uuid': instance_uuid, 'dest': i_ref['host'],
                   'block_migration': False}
         rpc.cast(self.context,
                  db.queue_get_for(nocare, FLAGS.compute_topic, i_ref['host']),
@@ -667,13 +664,13 @@ class SimpleDriverTestCase(test.TestCase):
 
         self.mox.ReplayAll()
         self.scheduler.live_migration(self.context, FLAGS.compute_topic,
-                                      instance_id=instance_id,
+                                      instance_uuid=instance_uuid,
                                       dest=i_ref['host'],
                                       block_migration=False)
 
-        i_ref = db.instance_get(self.context, instance_id)
+        i_ref = db.instance_get(self.context, instance_uuid)
         self.assertTrue(i_ref['vm_state'] == vm_states.MIGRATING)
-        db.instance_destroy(self.context, instance_id)
+        db.instance_destroy(self.context, instance_uuid)
         db.volume_destroy(self.context, v_ref['id'])
 
     def test_live_migration_src_check_instance_not_running(self):
@@ -696,8 +693,8 @@ class SimpleDriverTestCase(test.TestCase):
 
         instance_id = self._create_instance()
         i_ref = db.instance_get(self.context, instance_id)
-        dic = {'instance_id': instance_id, 'size': 1}
-        v_ref = db.volume_create(self.context, {'instance_id': instance_id,
+        dic = {'instance_uuid': instance_id, 'size': 1}
+        v_ref = db.volume_create(self.context, {'instance_uuid': instance_id,
                                                 'size': 1})
         t1 = utils.utcnow() - datetime.timedelta(1)
         dic = {'created_at': t1, 'updated_at': t1, 'binary': 'nova-volume',
@@ -978,11 +975,14 @@ def zone_get_all(context):
 
 
 def fake_instance_get(context, uuid):
-    return {'id': 1, 'uuid': uuid}
+    if FAKE_UUID_NOT_FOUND:
+        raise exception.InstanceNotFound(instance_id=uuid)
+    else:
+        return {'id': 1, 'uuid': uuid}
 
 
 class FakeRerouteCompute(api.reroute_compute):
-    def __init__(self, method_name, id_to_return=1):
+    def __init__(self, method_name, id_to_return=FAKE_UUID):
         super(FakeRerouteCompute, self).__init__(method_name)
         self.id_to_return = id_to_return
 
@@ -997,7 +997,7 @@ class FakeRerouteCompute(api.reroute_compute):
 
 
 def go_boom(self, context, instance):
-    raise exception.InstanceNotFound(instance_id=instance)
+    raise exception.InstanceNotFound(instance_uuid=instance)
 
 
 def found_instance(self, context, instance):
@@ -1026,21 +1026,6 @@ class ZoneRedirectTest(test.TestCase):
         self.stubs.UnsetAll()
         super(ZoneRedirectTest, self).tearDown()
 
-    def test_trap_found_locally(self):
-        decorator = FakeRerouteCompute("foo")
-        try:
-            result = decorator(found_instance)(None, None, 1)
-        except api.RedirectResult, e:
-            self.fail(_("Successful database hit should succeed"))
-
-    def test_trap_not_found_locally_id_passed(self):
-        """When an integer ID is not found locally, we cannot reroute to
-        another zone, so just return InstanceNotFound exception
-        """
-        decorator = FakeRerouteCompute("foo")
-        self.assertRaises(exception.InstanceNotFound,
-            decorator(go_boom), None, None, 1)
-
     def test_trap_not_found_locally_uuid_passed(self):
         """When a UUID is found, if the item isn't found locally, we should
         try to reroute to a child zone to see if they have it
@@ -1063,9 +1048,9 @@ class ZoneRedirectTest(test.TestCase):
         self.assertEquals(decorator.get_collection_context_and_id(
             (None, 10, 20), {}), ("servers", 10, 20))
         self.assertEquals(decorator.get_collection_context_and_id(
-            (None, 11,),  dict(instance_id=21)), ("servers", 11, 21))
+            (None, 11,),  dict(instance_uuid=21)), ("servers", 11, 21))
         self.assertEquals(decorator.get_collection_context_and_id(
-            (None,), dict(context=12, instance_id=22)), ("servers", 12, 22))
+            (None,), dict(context=12, instance_uuid=22)), ("servers", 12, 22))
 
     def test_unmarshal_single_server(self):
         decorator = api.reroute_compute("foo")
