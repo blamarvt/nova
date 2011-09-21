@@ -24,6 +24,7 @@ meta = sqlalchemy.MetaData()
 
 
 table_names = [
+    'consoles',
     'instance_actions',
     'block_device_mapping',
     'fixed_ips',
@@ -31,6 +32,12 @@ table_names = [
     'volumes',
     'instance_metadata',
     'virtual_interfaces',
+]
+
+
+skip_fk_tables = [
+    'virtual_interfaces',
+    'consoles',
 ]
 
 
@@ -55,7 +62,7 @@ def upgrade(migrate_engine):
         # Add a new instance_uuid column
         table.create_column(instance_uuid_column)
 
-        if table_name != 'virtual_interfaces':
+        if table_name not in skip_fk_tables:
             migrate.ForeignKeyConstraint([table.c.instance_uuid],
                                          [instances.c.uuid]).create()
 
@@ -96,14 +103,14 @@ def downgrade(migrate_engine):
                           values(instance_id = instance_id)
             migrate_engine.execute(query)
 
-        if table_name != 'virtual_interfaces':
+        if table_name not in skip_fk_tables:
             migrate.ForeignKeyConstraint([table.c.instance_uuid],
                                          [instances.c.uuid]).drop()
 
         # Drop the old instance_id column
         table.c.instance_uuid.drop()
 
-        if table_name != 'virtual_interfaces':
+        if table_name not in skip_fk_tables:
             migrate.ForeignKeyConstraint([table.c.instance_id],
                                          [instances.c.id]).create()
 
