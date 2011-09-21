@@ -1123,12 +1123,12 @@ class LibvirtConnection(driver.ComputeDriver):
             # for nova.api.ec2.cloud.CloudController.get_metadata()
             xml_info['root_device'] = self.default_root_device
             db.instance_update(
-                nova_context.get_admin_context(), instance['id'],
+                nova_context.get_admin_context(), instance['uuid'],
                 {'root_device_name': '/dev/' + self.default_root_device})
 
         if local_device:
             db.instance_update(
-                nova_context.get_admin_context(), instance['id'],
+                nova_context.get_admin_context(), instance['uuid'],
                 {'default_local_device': '/dev/' + self.default_local_device})
 
         swap = driver.block_device_info_get_swap(block_device_info)
@@ -1140,7 +1140,7 @@ class LibvirtConnection(driver.ComputeDriver):
                                           block_device_info)):
             xml_info['swap_device'] = self.default_swap_device
             db.instance_update(
-                nova_context.get_admin_context(), instance['id'],
+                nova_context.get_admin_context(), instance['uuid'],
                 {'default_swap_device': '/dev/' + self.default_swap_device})
 
         config_drive = False

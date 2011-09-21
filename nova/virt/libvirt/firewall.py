@@ -346,7 +346,7 @@ class NWFilterFirewall(FirewallDriver):
                     append('nova-allow-ra-server')
 
         for security_group in \
-                db.security_group_get_by_instance(ctxt, instance['id']):
+                db.security_group_get_by_instance(ctxt, instance['uuid']):
 
             self.refresh_security_group_rules(security_group['id'])
 
@@ -530,19 +530,19 @@ class IptablesFirewallDriver(FirewallDriver):
         pass
 
     def unfilter_instance(self, instance, network_info):
-        if self.instances.pop(instance['id'], None):
+        if self.instances.pop(instance['uuid'], None):
             # NOTE(vish): use the passed info instead of the stored info
-            self.network_infos.pop(instance['id'])
+            self.network_infos.pop(instance['uuid'])
             self.remove_filters_for_instance(instance)
             self.iptables.apply()
             self.nwfilter.unfilter_instance(instance, network_info)
         else:
             LOG.info(_('Attempted to unfilter instance %s which is not '
-                     'filtered'), instance['id'])
+                     'filtered'), instance['uuid'])
 
     def prepare_instance_filter(self, instance, network_info):
-        self.instances[instance['id']] = instance
-        self.network_infos[instance['id']] = network_info
+        self.instances[instance['uuid']] = instance
+        self.network_infos[instance['uuid']] = network_info
         self.add_filters_for_instance(instance)
         self.iptables.apply()
 
@@ -571,7 +571,7 @@ class IptablesFirewallDriver(FirewallDriver):
                 self.iptables.ipv6['filter'].add_rule(chain_name, rule)
 
     def add_filters_for_instance(self, instance):
-        network_info = self.network_infos[instance['id']]
+        network_info = self.network_infos[instance['uuid']]
         chain_name = self._instance_chain_name(instance)
         if FLAGS.use_ipv6:
             self.iptables.ipv6['filter'].add_chain(chain_name)
@@ -639,7 +639,7 @@ class IptablesFirewallDriver(FirewallDriver):
                     ipv6_rules.append('-s %s -j ACCEPT' % (cidrv6,))
 
         security_groups = db.security_group_get_by_instance(ctxt,
-                                                            instance['id'])
+                                                            instance['uuid'])
 
         # then, security group chains and rules
         for security_group in security_groups:
@@ -702,7 +702,7 @@ class IptablesFirewallDriver(FirewallDriver):
                         for instance in rule['grantee_group']['instances']:
                             LOG.info('instance: %r', instance)
                             ips = db.instance_get_fixed_addresses(ctxt,
-                                                                instance['id'])
+                                                             instance['uuid'])
                             LOG.info('ips: %r', ips)
                             for ip in ips:
                                 subrule = args + ['-s %s' % ip]
@@ -815,4 +815,4 @@ class IptablesFirewallDriver(FirewallDriver):
         return 'nova-sg-%s' % (security_group_id,)
 
     def _instance_chain_name(self, instance):
-        return 'inst-%s' % (instance['id'],)
+        return 'inst-%s' % (instance['uuid'],)

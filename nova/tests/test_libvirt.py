@@ -282,7 +282,7 @@ class LibvirtConnTestCase(test.TestCase):
 
         # Assuming that base image already exists in image_service
         instance_ref = db.instance_create(self.context, self.test_instance)
-        properties = {'instance_id': instance_ref['id'],
+        properties = {'instance_uuid': instance_ref['uuid'],
                       'user_id': str(self.context.user_id)}
         snapshot_name = 'test-snap'
         sent_meta = {'name': snapshot_name, 'is_public': False,
@@ -319,7 +319,7 @@ class LibvirtConnTestCase(test.TestCase):
 
         # Assuming that base image already exists in image_service
         instance_ref = db.instance_create(self.context, self.test_instance)
-        properties = {'instance_id': instance_ref['id'],
+        properties = {'instance_uuid': instance_ref['uuid'],
                       'user_id': str(self.context.user_id)}
         snapshot_name = 'test-snap'
         sent_meta = {'name': snapshot_name, 'is_public': False,
@@ -360,7 +360,7 @@ class LibvirtConnTestCase(test.TestCase):
 
         # Assuming that base image already exists in image_service
         instance_ref = db.instance_create(self.context, test_instance)
-        properties = {'instance_id': instance_ref['id'],
+        properties = {'instance_uuid': instance_ref['uuid'],
                       'user_id': str(self.context.user_id)}
         snapshot_name = 'test-snap'
         sent_meta = {'name': snapshot_name, 'is_public': False,
@@ -546,7 +546,7 @@ class LibvirtConnTestCase(test.TestCase):
             conn = connection.LibvirtConnection(True)
             uri = conn.get_uri()
             self.assertEquals(uri, testuri)
-        db.instance_destroy(user_context, instance_ref['id'])
+        db.instance_destroy(user_context, instance_ref['uuid'])
 
     def test_update_available_resource_works_correctly(self):
         """Confirm compute_node table is updated successfully."""
@@ -652,7 +652,7 @@ class LibvirtConnTestCase(test.TestCase):
         self.assertEqual(29, fake_timer.counter, "Didn't wait the expected "
                                                  "amount of time")
 
-        db.instance_destroy(self.context, instance_ref['id'])
+        db.instance_destroy(self.context, instance_ref['uuid'])
 
     def test_live_migration_raises_exception(self):
         """Confirms recover method is called when exceptions are raised."""
@@ -666,11 +666,11 @@ class LibvirtConnTestCase(test.TestCase):
                          'power_state': power_state.RUNNING,
                          'vm_state': vm_states.ACTIVE}
         instance_ref = db.instance_create(self.context, self.test_instance)
-        instance_ref = db.instance_update(self.context, instance_ref['id'],
+        instance_ref = db.instance_update(self.context, instance_ref['uuid'],
                                           instance_dict)
         vol_dict = {'status': 'migrating', 'size': 1}
         volume_ref = db.volume_create(self.context, vol_dict)
-        db.volume_attached(self.context, volume_ref['id'], instance_ref['id'],
+        db.volume_attached(self.context, volume_ref['id'], instance_ref['uuid'],
                            '/dev/fake')
 
         # Preparing mocks
@@ -701,14 +701,14 @@ class LibvirtConnTestCase(test.TestCase):
                       self.context, instance_ref, 'dest', False,
                       self.compute.rollback_live_migration)
 
-        instance_ref = db.instance_get(self.context, instance_ref['id'])
+        instance_ref = db.instance_get(self.context, instance_ref['uuid'])
         self.assertTrue(instance_ref['vm_state'] == vm_states.ACTIVE)
         self.assertTrue(instance_ref['power_state'] == power_state.RUNNING)
         volume_ref = db.volume_get(self.context, volume_ref['id'])
         self.assertTrue(volume_ref['status'] == 'in-use')
 
         db.volume_destroy(self.context, volume_ref['id'])
-        db.instance_destroy(self.context, instance_ref['id'])
+        db.instance_destroy(self.context, instance_ref['uuid'])
 
     def test_pre_block_migration_works_correctly(self):
         """Confirms pre_block_migration works correctly."""
@@ -742,7 +742,7 @@ class LibvirtConnTestCase(test.TestCase):
                                        (tmpdir, instance_ref.name)))
 
         shutil.rmtree(tmpdir)
-        db.instance_destroy(self.context, instance_ref['id'])
+        db.instance_destroy(self.context, instance_ref['uuid'])
         # Restore FLAGS.instances_path
         FLAGS.instances_path = store
 
@@ -797,7 +797,7 @@ class LibvirtConnTestCase(test.TestCase):
                         info[0]['local_gb'] == '10G' and
                         info[1]['local_gb'] == '20G')
 
-        db.instance_destroy(self.context, instance_ref['id'])
+        db.instance_destroy(self.context, instance_ref['uuid'])
 
     def test_spawn_with_network_info(self):
         # Skip if non-libvirt environment
@@ -1057,12 +1057,12 @@ class IptablesFirewallTestCase(test.TestCase):
                                        'to_port': 81,
                                        'group_id': src_secgroup['id']})
 
-        db.instance_add_security_group(admin_ctxt, instance_ref['id'],
+        db.instance_add_security_group(admin_ctxt, instance_ref['uuid'],
                                        secgroup['id'])
-        db.instance_add_security_group(admin_ctxt, src_instance_ref['id'],
+        db.instance_add_security_group(admin_ctxt, src_instance_ref['uuid'],
                                        src_secgroup['id'])
-        instance_ref = db.instance_get(admin_ctxt, instance_ref['id'])
-        src_instance_ref = db.instance_get(admin_ctxt, src_instance_ref['id'])
+        instance_ref = db.instance_get(admin_ctxt, instance_ref['uuid'])
+        src_instance_ref = db.instance_get(admin_ctxt, src_instance_ref['uuid'])
 
 #        self.fw.add_instance(instance_ref)
         def fake_iptables_execute(*cmd, **kwargs):
@@ -1143,7 +1143,7 @@ class IptablesFirewallTestCase(test.TestCase):
                            '-m multiport --dports 80:81 -s 192.168.10.0/24')
         self.assertTrue(len(filter(regex.match, self.out_rules)) > 0,
                         "TCP port 80/81 acceptance rule wasn't added")
-        db.instance_destroy(admin_ctxt, instance_ref['id'])
+        db.instance_destroy(admin_ctxt, instance_ref['uuid'])
 
     def test_filters_for_instance_with_ip_v6(self):
         self.flags(use_ipv6=True)
@@ -1188,7 +1188,7 @@ class IptablesFirewallTestCase(test.TestCase):
                                  'add_filters_for_instance',
                                  use_mock_anything=True)
         self.fw.prepare_instance_filter(instance_ref, mox.IgnoreArg())
-        self.fw.instances[instance_ref['id']] = instance_ref
+        self.fw.instances[instance_ref['uuid']] = instance_ref
         self.mox.ReplayAll()
         self.fw.do_refresh_security_group_rules("fake")
 
@@ -1216,13 +1216,13 @@ class IptablesFirewallTestCase(test.TestCase):
         # should undefine just the instance filter
         self.assertEqual(original_filter_count - len(fakefilter.filters), 1)
 
-        db.instance_destroy(admin_ctxt, instance_ref['id'])
+        db.instance_destroy(admin_ctxt, instance_ref['uuid'])
 
     def test_provider_firewall_rules(self):
         # setup basic instance data
         instance_ref = self._create_instance_ref()
         # FRAGILE: peeks at how the firewall names chains
-        chain_name = 'inst-%s' % instance_ref['id']
+        chain_name = 'inst-%s' % instance_ref['uuid']
 
         # create a firewall via setup_basic_filtering like libvirt_conn.spawn
         # should have a chain with 0 rules
@@ -1404,7 +1404,7 @@ class NWFilterTestCase(test.TestCase):
         self.fake_libvirt_connection.nwfilterDefineXML = _filterDefineXMLMock
 
         instance_ref = self._create_instance()
-        inst_id = instance_ref['id']
+        inst_id = instance_ref['uuid']
 
         def _ensure_all_called(mac):
             instance_filter = 'nova-instance-%s-%s' % (instance_ref['name'],
@@ -1435,7 +1435,7 @@ class NWFilterTestCase(test.TestCase):
         self.fw.apply_instance_filter(instance, network_info)
         _ensure_all_called(mac)
         self.teardown_security_group()
-        db.instance_destroy(context.get_admin_context(), instance_ref['id'])
+        db.instance_destroy(context.get_admin_context(), instance_ref['uuid'])
 
     def test_create_network_filters(self):
         instance_ref = self._create_instance()
