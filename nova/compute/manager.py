@@ -1759,4 +1759,4 @@ class ComputeManager(manager.SchedulerDependentManager):
             if instance['vm_state'] == vm_states.SOFT_DELETE and \
                (curtime - instance['deleted_at']) >= queue_time:
                 LOG.info('Deleting %s' % instance['name'])
-                self._delete_instance(context, instance['id'])
+                self._delete_instance(context, instance['uuid'])
