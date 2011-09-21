@@ -28,7 +28,7 @@ from novaclient import exceptions as novaclient_exceptions
 
 from mox import IgnoreArg
 from nova import context
-from nova import db
+from nova.db import api as db
 from nova import exception
 from nova import flags
 from nova import service
