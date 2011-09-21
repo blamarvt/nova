@@ -80,19 +80,19 @@ class Scheduler(object):
         """Must override at least this method for scheduler to work."""
         raise NotImplementedError(_("Must implement a fallback schedule"))
 
-    def schedule_live_migration(self, context, instance_id, dest,
+    def schedule_live_migration(self, context, instance_uuid, dest,
                                 block_migration=False):
         """Live migration scheduling method.
 
         :param context:
-        :param instance_id:
+        :param instance_uuid:
         :param dest: destination host
         :return:
             The host where instance is running currently.
             Then scheduler send request that host.
         """
         # Whether instance exists and is running.
-        instance_ref = db.instance_get(context, instance_id)
+        instance_ref = db.instance_get(context, instance_uuid)
 
         # Checking instance.
         self._live_migration_src_check(context, instance_ref)
@@ -106,7 +106,7 @@ class Scheduler(object):
 
         # Changing instance_state.
         values = {"vm_state": vm_states.MIGRATING}
-        db.instance_update(context, instance_id, values)
+        db.instance_update(context, instance_uuid, values)
 
         # Changing volume state
         for volume_ref in instance_ref['volumes']:
@@ -130,7 +130,7 @@ class Scheduler(object):
         # Checking instance is running.
         if instance_ref['power_state'] != power_state.RUNNING:
             instance_id = ec2utils.id_to_ec2_id(instance_ref['id'])
-            raise exception.InstanceNotRunning(instance_id=instance_id)
+            raise exception.InstanceNotRunning(instance_uuid=instance_id)
 
         # Checing volume node is running when any volumes are mounted
         # to the instance.
@@ -170,7 +170,7 @@ class Scheduler(object):
         src = instance_ref['host']
         if dest == src:
             instance_id = ec2utils.id_to_ec2_id(instance_ref['id'])
-            raise exception.UnableToMigrateToSelf(instance_id=instance_id,
+            raise exception.UnableToMigrateToSelf(instance_uuid=instance_id,
                                                   host=dest)
 
         # Checking dst host still has enough capacities.
