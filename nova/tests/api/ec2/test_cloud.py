@@ -46,6 +46,9 @@ FLAGS = flags.FLAGS
 LOG = logging.getLogger('nova.tests.cloud')
 
 
+FAKE_UUID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+
 class CloudTestCase(test.TestCase):
     def setUp(self):
         super(CloudTestCase, self).setUp()
@@ -1589,8 +1592,10 @@ class CloudTestCase(test.TestCase):
         """Make sure that _get_instance_mapping works"""
         ctxt = None
         instance_ref0 = {'id': 0,
+                         'uuid': FAKE_UUID,
                          'root_device_name': None}
         instance_ref1 = {'id': 0,
+                         'uuid': FAKE_UUID,
                          'root_device_name': '/dev/sda1'}
 
         self.stubs.Set(db, 'block_device_mapping_get_all_by_instance',

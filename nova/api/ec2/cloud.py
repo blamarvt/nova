@@ -283,7 +283,7 @@ class CloudController(object):
 
         # 'ephemeralN', 'swap' and ebs
         for bdm in db.block_device_mapping_get_all_by_instance(
-            ctxt, instance_ref.get('uuid')):
+            ctxt, instance_ref['uuid']):
             if bdm['no_device']:
                 continue
 
