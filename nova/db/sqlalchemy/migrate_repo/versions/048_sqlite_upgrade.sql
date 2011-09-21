@@ -1,5 +1,35 @@
 BEGIN TRANSACTION;
 
+-- START consoles
+ALTER TABLE consoles RENAME TO consoles_backup;
+
+CREATE TABLE consoles (
+    created_at DATETIME, 
+    updated_at DATETIME, 
+    deleted_at DATETIME, 
+    deleted BOOLEAN, 
+    id INTEGER NOT NULL, 
+    instance_name VARCHAR(255), 
+    instance_uuid VARCHAR(36), 
+    password VARCHAR(255), 
+    port INTEGER, 
+    pool_id INTEGER, 
+    PRIMARY KEY (id), 
+    FOREIGN KEY(pool_id) REFERENCES console_pools (id), 
+    CHECK (deleted IN (0, 1))
+);
+
+INSERT INTO consoles
+    SELECT * FROM consoles_backup;
+
+UPDATE consoles
+    SET instance_uuid = (
+        SELECT uuid FROM instances WHERE id = consoles.instance_uuid
+    );
+
+DROP TABLE consoles_backup;
+-- END consoles
+
 -- START instance_actions
 ALTER TABLE instance_actions RENAME TO instance_actions_backup;
 
