@@ -855,7 +855,7 @@ class API(base.Base):
 
         self.update(context,
                     instance_uuid,
-                    task_state=task_states.DELETING)
+                    task_state=task_states.DELETING,
                     progress=0)
 
         host = instance['host']
