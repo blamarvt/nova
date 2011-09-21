@@ -173,6 +173,12 @@ class Controller(object):
         server['server']['adminPass'] = extra_values['password']
         return server
 
+    def _delete(self, context, id):
+        if FLAGS.reclaim_instance_interval:
+            self.compute_api.soft_delete(context, id)
+        else:
+            self.compute_api.delete(context, id)
+
     @scheduler_api.redirect_handler
     def update(self, req, id, body):
         """Update server then pass on to version-specific controller"""
@@ -610,7 +616,7 @@ class ControllerV10(Controller):
         context = req.environ['nova.context']
         uuid = self._convert_id(context, id)
         try:
-            self.compute_api.delete(context, uuid)
+            self._delete(req.environ['nova.context'], uuid)
         except exception.NotFound:
             raise exc.HTTPNotFound()
         return webob.Response(status_int=202)
@@ -690,7 +696,7 @@ class ControllerV11(Controller):
     def delete(self, req, id):
         """ Destroys a server """
         try:
-            self.compute_api.delete(req.environ['nova.context'], id)
+            self._delete(req.environ['nova.context'], id)
         except exception.NotFound:
             raise exc.HTTPNotFound()
 
