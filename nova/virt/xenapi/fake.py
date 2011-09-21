@@ -543,7 +543,6 @@ class SessionBase(object):
         return ref
 
     def _destroy(self, name, params):
-        raise Exception(name)
         self._check_session(params)
         self._check_arg_count(params, 2)
         table, _ = name.split('.')

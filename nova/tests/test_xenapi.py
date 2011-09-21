@@ -245,7 +245,7 @@ class XenAPIVMTestCase(test.TestCase):
                 if not vm_rec["is_control_domain"]:
                     vm_labels.append(vm_rec["name_label"])
 
-            self.assertEquals(vm_labels, ['1'])
+            self.assertEquals(vm_labels, [FAKE_UUID])
 
         def ensure_vbd_was_torn_down():
             vbd_labels = []
@@ -253,7 +253,7 @@ class XenAPIVMTestCase(test.TestCase):
                 vbd_rec = xenapi_fake.get_record('VBD', vbd_ref)
                 vbd_labels.append(vbd_rec["vm_name_label"])
 
-            self.assertEquals(vbd_labels, ['1'])
+            self.assertEquals(vbd_labels, [FAKE_UUID])
 
         def ensure_vdi_was_torn_down():
             for vdi_ref in xenapi_fake.get_all('VDI'):
@@ -589,7 +589,7 @@ class XenAPIVMTestCase(test.TestCase):
         xenapi_fake.reset_table('network')
         # Instance id = 2 will use vlan network (see db/fakes.py)
         ctxt = self.context.elevated()
-        instance = self._create_instance(2, False)
+        instance = self._create_instance(FAKE_UUID, False)
         networks = self.network.db.network_get_all(ctxt)
         for network in networks:
             self.network.set_network_host(ctxt, network)
