@@ -20,7 +20,7 @@ Handles all requests relating to schedulers.
 from novaclient import v1_1 as novaclient
 from novaclient import exceptions as novaclient_exceptions
 
-from nova import db
+from nova.db import api as db
 from nova import exception
 from nova import flags
 from nova import log as logging

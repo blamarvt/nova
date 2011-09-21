@@ -55,7 +55,7 @@ class ConsoleTestCase(test.TestCase):
         inst['project_id'] = self.project_id
         inst['instance_type_id'] = 1
         inst['ami_launch_index'] = 0
-        return db.instance_create(self.context, inst)['id']
+        return db.instance_create(self.context, inst)['uuid']
 
     def test_get_pool_for_instance_host(self):
         pool = self.console.get_pool_for_instance_host(self.context, self.host)
