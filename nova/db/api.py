@@ -43,7 +43,7 @@ flags.DEFINE_string('db_backend', 'sqlalchemy',
                     'The backend to use for db')
 flags.DEFINE_boolean('enable_new_services', True,
                      'Services to be added to the available pool on create')
-flags.DEFINE_string('instance_name_template', 'instance-%08x',
+flags.DEFINE_string('instance_name_template', 'instance-%s',
                     'Template string to be used to generate instance names')
 flags.DEFINE_string('volume_name_template', 'volume-%08x',
                     'Template string to be used to generate instance names')

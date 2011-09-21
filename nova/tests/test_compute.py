@@ -995,7 +995,7 @@ class ComputeTestCase(test.TestCase):
 
     def test_get_all_by_instance_name_regexp(self):
         """Test searching instances by name"""
-        self.flags(instance_name_template='instance-%d')
+        self.flags(instance_name_template='instance-%s')
 
         c = context.get_admin_context()
         instance_uuid1 = self._create_instance({'id': 1})

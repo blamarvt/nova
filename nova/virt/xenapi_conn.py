@@ -422,7 +422,7 @@ class XenAPISession(object):
                 # Ensure action is never > 255
                 action = dict(action=name[:255], error=None)
                 if id:
-                    action["instance_id"] = int(id)
+                    action["instance_uuid"] = id
                 if status == "pending":
                     return
                 elif status == "success":

@@ -184,7 +184,7 @@ class XenAPIVMTestCase(test.TestCase):
         self.stubs = stubout.StubOutForTesting()
         self.flags(xenapi_connection_url='test_url',
                    xenapi_connection_password='test_pass',
-                   instance_name_template='%d')
+                   instance_name_template='%s')
         xenapi_fake.reset()
         xenapi_fake.create_local_srs()
         xenapi_fake.create_local_pifs()

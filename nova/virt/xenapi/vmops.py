@@ -1258,7 +1258,7 @@ class VMOps(object):
         try:
             return json.loads(ret)
         except TypeError:
-            instance_uuid = vm.id
+            instance_uuid = vm.uuid
             LOG.error(_('The agent call to %(method)s returned an invalid'
                       ' response: %(ret)r. VM id=%(instance_uuid)s;'
                       ' path=%(path)s; args=%(addl_args)r') % locals())
@@ -1271,7 +1271,7 @@ class VMOps(object):
         Abstracts out the process of calling a method of a xenapi plugin.
         Any errors raised by the plugin will in turn raise a RuntimeError here.
         """
-        instance_uuid = vm.id
+        instance_uuid = vm.uuid
         vm_ref = vm_ref or self._get_vm_opaque_ref(vm)
         vm_rec = self._session.get_xenapi().VM.get_record(vm_ref)
         args = {'dom_id': vm_rec['domid'], 'path': path}

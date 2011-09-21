@@ -170,7 +170,7 @@ class Instance(BASE, NovaBase):
 
     @property
     def name(self):
-        base_name = FLAGS.instance_name_template % self.id
+        base_name = FLAGS.instance_name_template % self.uuid
         if getattr(self, '_rescue', False):
             base_name += "-rescue"
         return base_name
