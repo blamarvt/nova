@@ -692,7 +692,7 @@ class VMOps(object):
 
         task = self._session.async_call_plugin('migration',
                 'move_vhds_into_sr', {'params': pickle.dumps(params)})
-        self._session.wait_for_task(task, instance.id)
+        self._session.wait_for_task(task, instance.uuid)
 
         # Now we rescan the SR so we find the VHDs
         VMHelper.scan_default_sr(self._session)
@@ -726,7 +726,7 @@ class VMOps(object):
         else:
             task = self._session.call_xenapi('Async.VM.clean_reboot', vm_ref)
 
-        self._session.wait_for_task(task, instance.id)
+        self._session.wait_for_task(task, instance.uuid)
 
     def get_agent_version(self, instance):
         """Get the version of the agent running on the VM instance."""
@@ -867,7 +867,7 @@ class VMOps(object):
             else:
                 task = self._session.call_xenapi("Async.VM.clean_shutdown",
                                                  vm_ref)
-            self._session.wait_for_task(task, instance.id)
+            self._session.wait_for_task(task, instance_uuid)
         except self.XenAPI.Failure, exc:
             LOG.exception(exc)
 
@@ -899,7 +899,7 @@ class VMOps(object):
         for vdi_ref in vdi_refs:
             try:
                 task = self._session.call_xenapi('Async.VDI.destroy', vdi_ref)
-                self._session.wait_for_task(task, instance.id)
+                self._session.wait_for_task(task, instance_uuid)
             except self.XenAPI.Failure, exc:
                 LOG.exception(exc)
 
@@ -1032,26 +1032,26 @@ class VMOps(object):
         """Pause VM instance."""
         vm_ref = self._get_vm_opaque_ref(instance)
         task = self._session.call_xenapi('Async.VM.pause', vm_ref)
-        self._wait_with_callback(instance.id, task, callback)
+        self._wait_with_callback(instance.uuid, task, callback)
 
     def unpause(self, instance, callback):
         """Unpause VM instance."""
         vm_ref = self._get_vm_opaque_ref(instance)
         task = self._session.call_xenapi('Async.VM.unpause', vm_ref)
-        self._wait_with_callback(instance.id, task, callback)
+        self._wait_with_callback(instance.uuid, task, callback)
 
     def suspend(self, instance, callback):
         """Suspend the specified instance."""
         vm_ref = self._get_vm_opaque_ref(instance)
         task = self._session.call_xenapi('Async.VM.suspend', vm_ref)
-        self._wait_with_callback(instance.id, task, callback)
+        self._wait_with_callback(instance.uuid, task, callback)
 
     def resume(self, instance, callback):
         """Resume the specified instance."""
         vm_ref = self._get_vm_opaque_ref(instance)
         task = self._session.call_xenapi('Async.VM.resume', vm_ref, False,
                                          True)
-        self._wait_with_callback(instance.id, task, callback)
+        self._wait_with_callback(instance.uuid, task, callback)
 
     def rescue(self, context, instance, _callback, network_info):
         """Rescue the specified instance.
