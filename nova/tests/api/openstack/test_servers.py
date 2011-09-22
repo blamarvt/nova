@@ -86,7 +86,7 @@ def return_virtual_interface_by_instance(interfaces):
 
 def return_virtual_interface_instance_nonexistant(interfaces):
     def _return_virtual_interface_by_instance(context, instance_uuid):
-        raise exception.InstanceNotFound(instance_id=instance_uuid)
+        raise exception.InstanceNotFound(instance_uuid=instance_uuid)
     return _return_virtual_interface_by_instance
 
 

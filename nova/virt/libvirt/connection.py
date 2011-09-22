@@ -1182,7 +1182,7 @@ class LibvirtConnection(driver.ComputeDriver):
         except libvirt.libvirtError as ex:
             error_code = ex.get_error_code()
             if error_code == libvirt.VIR_ERR_NO_DOMAIN:
-                raise exception.InstanceNotFound(instance_id=instance_name)
+                raise exception.InstanceNotFound(instance_uuid=instance_name)
 
             msg = _("Error from libvirt while looking up %(instance_name)s: "
                     "[Error Code %(error_code)s] %(ex)s") % locals()

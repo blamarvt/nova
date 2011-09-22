@@ -370,7 +370,6 @@ class VMWareAPISession(object):
                             task_ref, "Task", "info")
             task_name = task_info.name
             action = dict(
-                instance_id=int(instance_id),
                 action=task_name[0:255],
                 error=None)
             if task_info.state in ['queued', 'running']:

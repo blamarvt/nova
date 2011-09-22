@@ -984,7 +984,7 @@ def zone_get_all(context):
 
 def fake_instance_get(context, uuid):
     if FAKE_UUID_NOT_FOUND:
-        raise exception.InstanceNotFound(instance_id=uuid)
+        raise exception.InstanceNotFound(instance_uuid=uuid)
     else:
         return {'id': 1, 'uuid': uuid}
 

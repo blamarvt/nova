@@ -45,10 +45,10 @@ class API(base.Base):
                                                      context.project_id)
         return ips
 
-    def get_vifs_by_instance(self, context, instance_id):
+    def get_vifs_by_instance(self, context, instance_uuid):
         return rpc.call(context, FLAGS.network_topic,
                         {'method': 'get_vifs_by_instance',
-                         'args': {'instance_id': instance_id}})
+                         'args': {'instance_uuid': instance_uuid}})
 
     def allocate_floating_ip(self, context):
         """Adds a floating ip to a project."""
@@ -153,7 +153,7 @@ class API(base.Base):
         :returns: network info as from get_instance_nw_info() below
         """
         args = kwargs
-        args['instance_id'] = instance['id']
+        args['instance_uuid'] = instance['uuid']
         args['project_id'] = instance['project_id']
         args['host'] = instance['host']
         args['instance_type_id'] = instance['instance_type_id']
@@ -165,24 +165,24 @@ class API(base.Base):
     def deallocate_for_instance(self, context, instance, **kwargs):
         """Deallocates all network structures related to instance."""
         args = kwargs
-        args['instance_id'] = instance['id']
+        args['instance_uuid'] = instance['uuid']
         args['project_id'] = instance['project_id']
         rpc.cast(context, FLAGS.network_topic,
                  {'method': 'deallocate_for_instance',
                   'args': args})
 
-    def add_fixed_ip_to_instance(self, context, instance_id, host, network_id):
+    def add_fixed_ip_to_instance(self, context, instance_uuid, host, network_id):
         """Adds a fixed ip to instance from specified network."""
-        args = {'instance_id': instance_id,
+        args = {'instance_uuid': instance_uuid,
                 'host': host,
                 'network_id': network_id}
         rpc.cast(context, FLAGS.network_topic,
                  {'method': 'add_fixed_ip_to_instance',
                   'args': args})
 
-    def remove_fixed_ip_from_instance(self, context, instance_id, address):
+    def remove_fixed_ip_from_instance(self, context, instance_uuid, address):
         """Removes a fixed ip from instance from specified network."""
-        args = {'instance_id': instance_id,
+        args = {'instance_uuid': instance_uuid,
                 'address': address}
         rpc.cast(context, FLAGS.network_topic,
                  {'method': 'remove_fixed_ip_from_instance',
