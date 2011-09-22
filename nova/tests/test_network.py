@@ -452,7 +452,7 @@ class VlanNetworkTestCase(test.TestCase):
                 {'project_id': 'project1'})
 
         fix_addr = db.fixed_ip_associate_pool(context1.elevated(),
-                1, instance['id'])
+                1, instance['uuid'])
 
         # Associate the IP with non-admin user context
         self.assertRaises(exception.NotAuthorized,
