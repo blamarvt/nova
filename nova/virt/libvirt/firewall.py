@@ -815,4 +815,4 @@ class IptablesFirewallDriver(FirewallDriver):
         return 'nova-sg-%s' % (security_group_id,)
 
     def _instance_chain_name(self, instance):
-        return 'inst-%s' % (instance['uuid'],)
+        return 'inst-%s' % (instance['id'],)
