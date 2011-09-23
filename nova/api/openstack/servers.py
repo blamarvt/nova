@@ -46,6 +46,9 @@ LOG = logging.getLogger('nova.api.openstack.servers')
 FLAGS = flags.FLAGS
 
 
+flags.DECLARE('reclaim_instance_interval', 'nova.compute.manager')
+
+
 class ConvertedException(exc.WSGIHTTPException):
     def __init__(self, code, title, explanation):
         self.code = code
