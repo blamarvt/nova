@@ -76,17 +76,17 @@ def generate_default_hostname(instance):
 
 def _is_able_to_shutdown(instance, instance_id):
     vm_state = instance["vm_state"]
-    task_state = instance["task_state"]
 
     valid_shutdown_states = [
         vm_states.ACTIVE,
         vm_states.REBUILDING,
         vm_states.BUILDING,
+        vm_states.ERROR,
     ]
 
     if vm_state not in valid_shutdown_states:
-        LOG.warn(_("Instance %(instance_id)s is not in an 'active' state. It "
-                   "is currently %(vm_state)s. Shutdown aborted.") % locals())
+        LOG.warn(_("Instance %(instance_id)s cannot be shutdown from "
+                   "it's current state: %(vm_state)s.") % locals())
         return False
 
     return True
