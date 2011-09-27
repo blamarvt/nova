@@ -86,7 +86,7 @@ def _is_able_to_shutdown(instance, instance_id):
 
     if vm_state not in valid_shutdown_states:
         LOG.warn(_("Instance %(instance_id)s cannot be shutdown from "
-                   "it's current state: %(vm_state)s.") % locals())
+                   "its current state: %(vm_state)s.") % locals())
         return False
 
     return True
