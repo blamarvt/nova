@@ -105,64 +105,112 @@ def extend(image, size):
     utils.execute('resize2fs', image, check_exit_code=False)
 
 
-def inject_data(image, key=None, net=None, metadata=None,
-                partition=None, nbd=False, tune2fs=True):
-    """Injects a ssh key and optionally net data into a disk image.
+def _unpartition_device(device_path):
+    """Remove partitions created by using _partition_device()."""
+    _, error = utils.execute('kpartx', '-d', device_path, run_as_root=True)
+    if error:
+        raise exception.Error(_('Failed to remove kpartx partitions for '
+                                '%(device_path)s: %(error)s' % locals()))
 
-    it will mount the image as a fully partitioned disk and attempt to inject
-    into the specified partition number.
 
-    If partition is not specified it mounts the image as a single partition.
+def _partition_device(device_path):
+    """Partition a mounted disk-like file using kpartx."""
+    _, error = utils.execute('kpartx', '-a', device_path, run_as_root=True)
+    if error:
+        raise exception.Error(_('Failed to partition %(device_path)s: '
+                                '%(error)s') % locals())
+
+
+def _remove_ext_autocheck(device_path):
+    """Remove extX filesystem's 'check this device every XX mounts'."""
+    utils.execute('tune2fs', '-c', 0, '-i', 0, device_path, run_as_root=True)
+
+
+def _mount(device_path, mount_path):
+    _, error = utils.execute('mount',
+                             device_path,
+                             mount_path,
+                             run_as_root=True)
+    if error:
+        raise exception.Error(_('Failed to mount filesystem: '
+                                '%(error)s') % locals())
+
+
+def _write_data(path, data, owner=None, group=None, perms=None, append=False):
+    """Write data to the given path.
+
+    :param path: The absolute path to write data to.
+    :param data: The data to write to the given path.
+    :param owner: The file will be chowned to this user
+    :param group: The file will be chowned to belong to this group
+    :param perms: Octal number representing permissions (for example 0o700)
+    :param append: If True, append to the file instead of overwriting contents
 
     """
-    device = _link_device(image, nbd)
+    file_name = os.path.basename(path)
+    directory = os.path.dirname(path)
+
+    if not file_name:
+        raise exception.Error(_('%s is not a valid file path.') % path)
+
     try:
-        if not partition is None:
-            # create partition
-            out, err = utils.execute('kpartx', '-a', device, run_as_root=True)
-            if err:
-                raise exception.Error(_('Failed to load partition: %s') % err)
-            mapped_device = '/dev/mapper/%sp%s' % (device.split('/')[-1],
-                                                   partition)
-        else:
-            mapped_device = device
+        os.makedirs(directory)
+    except OSError:
+        raise exception.Error(_('Unable to create directory %s') % directory)
 
-        try:
-            # We can only loopback mount raw images. If the device isn't there,
-            # it's normally because it's a .vmdk or a .vdi etc
-            if not os.path.exists(mapped_device):
-                raise exception.Error('Mapped device was not found (we can'
-                                      ' only inject raw disk images): %s' %
-                                      mapped_device)
+    if owner is not None:
+        utils.execute('chown', owner, path, run_as_root=True)
 
-            if tune2fs:
-                # Configure ext2fs so that it doesn't auto-check every N boots
-                out, err = utils.execute('tune2fs', '-c', 0, '-i', 0,
-                                         mapped_device, run_as_root=True)
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # mount loopback to dir
-                out, err = utils.execute('mount', mapped_device, tmpdir,
-                                         run_as_root=True)
-                if err:
-                    raise exception.Error(_('Failed to mount filesystem: %s')
-                                          % err)
+    if group is not None:
+        utils.execute('chgrp', group, path, run_as_root=True)
 
-                try:
-                    inject_data_into_fs(tmpdir, key, net, metadata,
-                                        utils.execute)
-                finally:
-                    # unmount device
-                    utils.execute('umount', mapped_device, run_as_root=True)
-            finally:
-                # remove temporary directory
-                utils.execute('rmdir', tmpdir)
-        finally:
-            if not partition is None:
-                # remove partitions
-                utils.execute('kpartx', '-d', device, run_as_root=True)
-    finally:
-        _unlink_device(device, nbd)
+    if perms is not None:
+        utils.execute('chmod', perms, path, run_as_root=True)
+
+    if append is True:
+        utils.execute('tee', '-a', path, process_input=data, run_as_root=True)
+    else:
+        utils.execute('tee', path, process_input=data, run_as_root=True)
+
+
+def inject_data(image, inject_data, partition=None, nbd=False, tune2fs=True):
+    """Injects data into a disk image.
+
+    Mounts the image as a fully partitioned disk and attempts to inject into
+    the specified partition number. If partition is not specified it mounts the
+    image as a single partition.
+
+    """
+    device_path = _link_device(image, nbd)
+    device_name = device.split('/')[-1]
+
+    if partition is not None:
+        _partition_device(device)
+        device_path = '/dev/mapper/%sp%s' % (device_name, partition)
+
+    if not os.path.exists(device_path):
+        raise exception.Error(_('Device %(device_path)s could not be found') %
+                                locals())
+
+    if tune2fs:
+        _remove_ext_autocheck(device_path)
+
+    tmpdir = tempfile.mkdtemp()
+    _mount(device_path, tmpdir)
+
+    for file_object in file_objects:
+        path = os.path.normpath(file_object.path)
+        full_path = os.path.join(tmpdir, path)
+        _write_data(path=full_path,
+                    data=file_object.data,
+                    owner=file_object.owner,
+                    group=file_object.group,
+                    perms=file_object.perms)
+
+    _umount(device_path)
+    os.rmdir(tmpdir)
+    _unpartition_device(device)
+    _unlink_device(device, nbd)
 
 
 def setup_container(image, container_dir=None, nbd=False):
