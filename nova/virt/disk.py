@@ -127,12 +127,21 @@ def _remove_ext_autocheck(device_path):
 
 
 def _mount(device_path, mount_path):
+    """Mount given device at the given path."""
     _, error = utils.execute('mount',
                              device_path,
                              mount_path,
                              run_as_root=True)
     if error:
         raise exception.Error(_('Failed to mount filesystem: '
+                                '%(error)s') % locals())
+
+
+def _unmount(device_path):
+    """Unmount the given mount point."""
+    _, error = utils.execute('umount', device_path, run_as_root=True)
+    if error:
+        raise exception.Error(_('Failed to unmount %(device_path)s: '
                                 '%(error)s') % locals())
 
 
@@ -173,7 +182,7 @@ def _write_data(path, data, owner=None, group=None, perms=None, append=False):
         utils.execute('tee', path, process_input=data, run_as_root=True)
 
 
-def inject_data(image, inject_data, partition=None, nbd=False, tune2fs=True):
+def inject_data(image, file_objects, partition=None, nbd=False, tune2fs=True):
     """Injects data into a disk image.
 
     Mounts the image as a fully partitioned disk and attempts to inject into
@@ -182,10 +191,10 @@ def inject_data(image, inject_data, partition=None, nbd=False, tune2fs=True):
 
     """
     device_path = _link_device(image, nbd)
-    device_name = device.split('/')[-1]
+    device_name = device_path.split('/')[-1]
 
     if partition is not None:
-        _partition_device(device)
+        _partition_device(device_path)
         device_path = '/dev/mapper/%sp%s' % (device_name, partition)
 
     if not os.path.exists(device_path):
@@ -207,10 +216,10 @@ def inject_data(image, inject_data, partition=None, nbd=False, tune2fs=True):
                     group=file_object.group,
                     perms=file_object.perms)
 
-    _umount(device_path)
+    _unmount(device_path)
+    _unpartition_device(device_path)
+    _unlink_device(device_path, nbd)
     os.rmdir(tmpdir)
-    _unpartition_device(device)
-    _unlink_device(device, nbd)
 
 
 def setup_container(image, container_dir=None, nbd=False):
