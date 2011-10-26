@@ -58,13 +58,17 @@ class ConvertedException(exc.WSGIHTTPException):
         super(ConvertedException, self).__init__()
 
 
-class Controller(object):
+class Controller(common.Controller):
     """ The Server API base controller class for the OpenStack API """
 
-    def __init__(self):
+    _view_builder = views_servers.ViewBuilder
+
+    def __init__(self, **kwargs):
+        super(Controller, self).__init__(**kwargs)
         self.compute_api = compute.API()
         self.network_api = network.API()
 
+    @common.Controller.prepare
     def index(self, req):
         """ Returns a list of server names and ids for a given user """
         try:
@@ -75,6 +79,7 @@ class Controller(object):
             raise exc.HTTPNotFound()
         return servers
 
+    @common.Controller.prepare
     def detail(self, req):
         """ Returns a list of server details for a given user """
         try:
@@ -84,12 +89,6 @@ class Controller(object):
         except exception.NotFound as err:
             raise exc.HTTPNotFound()
         return servers
-
-    def _get_block_device_mapping(self, data):
-        """Get block_device_mapping from 'server' dictionary.
-        Overidden by volumes controller.
-        """
-        return None
 
     def _get_block_device_mapping(self, data):
         """Get block_device_mapping from 'server' dictionary.
@@ -146,7 +145,10 @@ class Controller(object):
                                                  search_opts=search_opts)
 
         limited_list = self._limit_items(instance_list, req)
-        return self._build_list(req, limited_list, is_detail=is_detail)
+        if is_detail:
+            return self._builder.detail_view(limited_list)
+        else:
+            return self._builder.index_view(limited_list)
 
     def _handle_quota_error(self, error):
         """
@@ -325,18 +327,19 @@ class Controller(object):
 
     @exception.novaclient_converter
     @scheduler_api.redirect_handler
+    @common.Controller.prepare
     def show(self, req, id):
         """ Returns server details by server id """
         try:
             instance = self.compute_api.routing_get(
                 req.environ['nova.context'], id)
-            return self._build_view(req, instance, is_detail=True)
+            return self._builder.show_view(instance)
         except exception.NotFound:
             raise exc.HTTPNotFound()
 
+    @common.Controller.prepare
     def create(self, req, body):
         """ Creates a new server for a given user """
-
         if not body:
             raise exc.HTTPUnprocessableEntity()
 
@@ -492,15 +495,15 @@ class Controller(object):
 
         # Instances is a list
         instance = instances[0]
-        if not instance.get('_is_precooked', False):
-            instance['instance_type'] = inst_type
-            instance['image_ref'] = image_href
 
-        server = self._build_view(req, instance, is_create=True)
-        if '_is_precooked' in server['server']:
+        instance['instance_type'] = inst_type
+        instance['image_ref'] = image_href
+        server = self._builder.create_view(instance)
+        server['server']['adminPass'] = password
+
+        if '_is_precooked' in server['server'].keys():
             del server['server']['_is_precooked']
-        else:
-            server['server']['adminPass'] = password
+
         return server
 
     def _delete(self, context, id):
@@ -510,6 +513,7 @@ class Controller(object):
             self.compute_api.delete(context, id)
 
     @scheduler_api.redirect_handler
+    @common.Controller.prepare
     def update(self, req, id, body):
         """Update server then pass on to version-specific controller"""
         if len(req.body) == 0:
@@ -540,13 +544,13 @@ class Controller(object):
             raise exc.HTTPNotFound()
 
         instance = self.compute_api.routing_get(ctxt, id)
-        return self._build_view(req, instance, is_detail=True)
+        return self._builder.show_view(instance)
 
     @exception.novaclient_converter
     @scheduler_api.redirect_handler
+    @common.Controller.prepare
     def action(self, req, id, body):
         """Multi-purpose method used to take actions on a server"""
-
         self.actions = {
             'changePassword': self._action_change_password,
             'reboot': self._action_reboot,
@@ -747,36 +751,6 @@ class Controller(object):
 
         return common.get_id_from_href(flavor_ref)
 
-    def _build_view(self, req, instance, is_detail=False, is_create=False):
-        context = req.environ['nova.context']
-        project_id = getattr(context, 'project_id', '')
-        base_url = req.application_url
-        flavor_builder = views_flavors.ViewBuilder(base_url, project_id)
-        image_builder = views_images.ViewBuilder(base_url, project_id)
-        addresses_builder = views_addresses.ViewBuilder()
-        builder = views_servers.ViewBuilder(context, addresses_builder,
-                flavor_builder, image_builder, base_url, project_id)
-        return builder.build(instance,
-                             is_detail=is_detail,
-                             is_create=is_create)
-
-    def _build_list(self, req, instances, is_detail=False):
-        params = req.GET.copy()
-        pagination_params = common.get_pagination_params(req)
-        # Update params with int() values from pagination params
-        for key, val in pagination_params.iteritems():
-            params[key] = val
-
-        context = req.environ['nova.context']
-        project_id = getattr(context, 'project_id', '')
-        base_url = req.application_url
-        flavor_builder = views_flavors.ViewBuilder(base_url, project_id)
-        image_builder = views_images.ViewBuilder(base_url, project_id)
-        addresses_builder = views_addresses.ViewBuilder()
-        builder = views_servers.ViewBuilder(context, addresses_builder,
-                flavor_builder, image_builder, base_url, project_id)
-        return builder.build_list(instances, is_detail=is_detail, **params)
-
     def _action_change_password(self, input_dict, req, id):
         context = req.environ['nova.context']
         if (not 'changePassword' in input_dict
@@ -853,7 +827,7 @@ class Controller(object):
             raise exc.HTTPNotFound(explanation=msg)
 
         instance = self.compute_api.routing_get(context, instance_id)
-        view = self._build_view(request, instance, is_detail=True)
+        view = self._builder.show_view(instance)
         view['server']['adminPass'] = password
 
         return view

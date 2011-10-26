@@ -19,42 +19,33 @@ import itertools
 
 from nova import flags
 from nova import log as logging
+from nova.api.openstack import common
 
 
 FLAGS = flags.FLAGS
 LOG = logging.getLogger('nova.api.openstack.views.addresses')
 
 
-class ViewBuilder(object):
-    """Models a server addresses response as a python dictionary."""
+class ViewBuilder(common.ViewBuilder):
+    """Models server addresses as a dictionary."""
 
-    def _extract_ips(self, network, key=None):
-        if key:
-            chain = network[key]
-        else:
-            chain = itertools.chain(network['ips'], network['floating_ips'])
-        for ip in chain:
-            if not FLAGS.use_ipv6 and ip['version'] == 6:
-                continue
-            yield ip
+    _resource_name = "addresses"
 
-    def build(self, networks):
-        result = {}
-        for network in networks:
-            if network not in result:
-                result[network] = []
+    def ip_view(self, ip):
+        """Return a dictionary describing an IP address."""
+        return {
+            "version": ip["version"],
+            "addr": ip["addr"],
+        }
 
-            result[network].extend(self._extract_ips(networks[network]))
-        return result
+    def show_view(self, network, label):
+        """Returns a dictionary describing a network."""
+        return {label: [self.ip_view(ip) for ip in network["ips"]]}
 
-    def build_network(self, networks, requested_network):
-        for network in networks:
-            if network == requested_network:
-                return {network: list(self._extract_ips(networks[network]))}
-        return None
-
-    def _extract_network_label(self, network):
-        try:
-            return network['label']
-        except (TypeError, KeyError) as exc:
-            raise TypeError
+    def index_view(self, networks):
+        """Return a dictionary describing a list of networks."""
+        addresses = {}
+        for label, network in networks.items():
+            network_dict = self.show_view(network, label)
+            addresses[label] = network_dict[label]
+        return dict(addresses=addresses)

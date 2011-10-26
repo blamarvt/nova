@@ -16,6 +16,7 @@
 #    under the License.
 
 import functools
+import os
 import re
 import urlparse
 
@@ -427,3 +428,88 @@ def check_snapshots_enabled(f):
             raise webob.exc.HTTPBadRequest(explanation=msg)
         return f(*args, **kwargs)
     return inner
+
+
+class ViewBuilder(object):
+    """Model API responses as dictionaries."""
+
+    _resource_name = None
+
+    def __init__(self):
+        """Initialize a view builder."""
+        self._request = None
+
+    @property
+    def request(self):
+        """Return the request currently set to this builder."""
+        return self._request
+
+    def set_request(self, value):
+        """Set the request currently assigned to this builder."""
+        self._request = value
+
+    def _get_links(self, identifier):
+        return [{
+            "rel": "self",
+            "href": self._get_href_link(identifier),
+        },
+        {
+            "rel": "bookmark",
+            "href": self._get_bookmark_link(identifier),
+        }]
+
+    def _get_next_link(self, identifier):
+        """Return href string with proper limit and marker params."""
+        params = self.request.params.copy()
+        params["marker"] = identifier
+        url = os.path.join(self.request.application_url,
+                           self.request.environ["nova.context"].project_id,
+                           self._resource_name)
+        return "%s?%s" % (url, dict_to_query_str(params))
+
+    def _get_href_link(self, identifier):
+        """Return an href string pointing to this object."""
+        return os.path.join(self.request.application_url,
+                            self.request.environ["nova.context"].project_id,
+                            self._resource_name,
+                            str(identifier))
+
+    def _get_bookmark_link(self, identifier):
+        """Create a URL that refers to a specific resource."""
+        base_url = remove_version_from_href(self.request.application_url)
+        return os.path.join(base_url,
+                            self.request.environ["nova.context"].project_id,
+                            self._resource_name,
+                            str(identifier))
+
+    def _get_collection_links(self, items):
+        """Retrieve 'next' link, if applicable."""
+        links = []
+        limit = int(self.request.params.get("limit", 0))
+        if limit and limit == len(items):
+            last_item = items[-1]
+            last_item_id = last_item.get("uuid", last_item["id"])
+            links.append({
+                "rel": "next",
+                "href": self._get_next_link(last_item_id),
+            })
+        return links
+
+
+class Controller(object):
+    """Default controller."""
+
+    _view_builder = ViewBuilder
+
+    def __init__(self, view_builder=None):
+        """Initialize controller with default view builder."""
+        self._builder = view_builder or self._view_builder()
+
+    @staticmethod
+    def prepare(func):
+        """Prepare the wrapped function for the incoming request."""
+        @functools.wraps(func)
+        def wrapped(self, req, *args, **kwargs):
+            self._builder.set_request(req)
+            return func(self, req, *args, **kwargs)
+        return wrapped

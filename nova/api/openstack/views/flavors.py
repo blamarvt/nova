@@ -21,74 +21,40 @@ import os.path
 from nova.api.openstack import common
 
 
-class ViewBuilder(object):
+class ViewBuilder(common.ViewBuilder):
 
-    def __init__(self, base_url, project_id=""):
-        """
-        :param base_url: url of the root wsgi application
-        """
-        self.base_url = base_url
-        self.project_id = project_id
+    _resource_name = "flavors"
 
-    def build(self, flavor_obj, is_detail=False):
-        """Generic method used to generate a flavor entity."""
-        if is_detail:
-            flavor = self._build_detail(flavor_obj)
-        else:
-            flavor = self._build_simple(flavor_obj)
-
-        flavor["links"] = self._build_links(flavor)
-
-        return flavor
-
-    def _build_simple(self, flavor_obj):
-        """Build a minimal representation of a flavor."""
+    def basic_view(self, flavor):
         return {
-            "id": flavor_obj["flavorid"],
-            "name": flavor_obj["name"],
+            "flavor": {
+                "id": flavor["flavorid"],
+                "name": flavor["name"],
+                "links": self._get_links(flavor["flavorid"]),
+            },
         }
 
-    def _build_detail(self, flavor_obj):
-        """Build a more complete representation of a flavor."""
-        simple = self._build_simple(flavor_obj)
-
-        detail = {
-            "ram": flavor_obj["memory_mb"],
-            "disk": flavor_obj["local_gb"],
+    def show_view(self, flavor):
+        return {
+            "flavor": {
+                "id": flavor["flavorid"],
+                "name": flavor["name"],
+                "ram": flavor["memory_mb"],
+                "disk": flavor["local_gb"],
+                "vcpus": flavor.get("vcpus") or "",
+                "swap": flavor.get("swap") or "",
+                "rxtx_quota": flavor.get("rxtx_quota") or "",
+                "rxtx_cap": flavor.get("rxtx_cap") or "",
+                "links": self._get_links(flavor["flavorid"]),
+            },
         }
 
-        for key in ("vcpus", "swap", "rxtx_quota", "rxtx_cap"):
-            detail[key] = flavor_obj.get(key, "")
+    def index_view(self, flavors):
+        items = flavors.iteritems()
+        flavors = [self.basic_view(flavor)["flavor"] for _, flavor in items]
+        return dict(flavors=flavors)
 
-        detail.update(simple)
-
-        return detail
-
-    def _build_links(self, flavor_obj):
-        """Generate a container of links that refer to the provided flavor."""
-        print flavor_obj
-        href = self.generate_href(flavor_obj["id"])
-        bookmark = self.generate_bookmark(flavor_obj["id"])
-
-        links = [
-            {
-                "rel": "self",
-                "href": href,
-            },
-            {
-                "rel": "bookmark",
-                "href": bookmark,
-            },
-        ]
-
-        return links
-
-    def generate_href(self, flavor_id):
-        """Create an url that refers to a specific flavor id."""
-        return os.path.join(self.base_url, self.project_id,
-                            "flavors", str(flavor_id))
-
-    def generate_bookmark(self, flavor_id):
-        """Create an url that refers to a specific flavor id."""
-        return os.path.join(common.remove_version_from_href(self.base_url),
-            self.project_id, "flavors", str(flavor_id))
+    def detail_view(self, flavors):
+        items = flavors.iteritems()
+        flavors = [self.show_view(flavor)["flavor"] for _, flavor in items]
+        return dict(flavors=flavors)
