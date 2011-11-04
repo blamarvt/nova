@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import urllib2
 
 import XenAPIPlugin
 
@@ -77,29 +78,34 @@ def _download_tarball(sr_path, staging_path, image_id, glance_host,
     if auth_token:
         headers['x-auth-token'] = auth_token
 
-    conn = httplib.HTTPConnection(glance_host, glance_port)
+    url = "http://%(glance_host)s:%(glance_port)d/v1/images/%(image_id)s"
+    request = urllib2.Request(url % locals(), headers=headers)
 
-    for count in xrange(1 + num_retries):
-        conn.request('GET', '/v1/images/%s' % image_id, headers=headers)
-        resp = conn.getresponse()
-        if resp.status == httplib.OK:
-            break
-        elif resp.status == httplib.NOT_FOUND:
-            raise Exception("Image '%s' not found in Glance" % image_id)
-        elif count == num_retries:
-            raise Exception("Unexpected response from Glance %i" % resp.status)
-        time.sleep(1)
+    for try_num in xrange(1, num_retries + 1):
+        try:
+            response = urllib2.urlopen(request)
+        except urllib2.HTTPError, error:
+            logging.debug("Download attempt %d error: %s" % (try_num, error))
+
+            if error.code == 404:
+                raise Exception("Image '%s' not found in Glance" % image_id)
+
+            elif try_num == (num_retries + 1):
+                raise Exception("Unable to retrieve image after %d "
+                                "attempts." % try_num)
+            continue
 
     tar_cmd = "tar -zx --directory=%(staging_path)s" % locals()
     tar_proc = _make_subprocess(tar_cmd, stderr=True, stdin=True)
 
-    chunk = resp.read(CHUNK_SIZE)
+    logging.debug("Reading image data from %s" % url)
+
+    chunk = response.read(CHUNK_SIZE)
     while chunk:
         tar_proc.stdin.write(chunk)
-        chunk = resp.read(CHUNK_SIZE)
+        chunk = response.read(CHUNK_SIZE)
 
     _finish_subprocess(tar_proc, tar_cmd)
-    conn.close()
 
 
 def _import_vhds(sr_path, staging_path, uuid_stack):
