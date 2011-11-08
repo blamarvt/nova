@@ -215,7 +215,6 @@ class Instance(BASE, NovaBase):
     vcpus = Column(Integer)
     local_gb = Column(Integer)
 
-    hostname = Column(String(255))
     host = Column(String(255))  # , ForeignKey('hosts.id'))
 
     # *not* flavor_id

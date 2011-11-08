@@ -1024,3 +1024,35 @@ def total_seconds(td):
     else:
         return ((td.days * 86400 + td.seconds) * 10 ** 6 +
                 td.microseconds) / 10.0 ** 6
+
+
+def sanitize_hostname(hostname):
+    """Return a hostname which conforms to RFC-952 and RFC-1123 specs."""
+    if isinstance(hostname, unicode):
+        hostname = hostname.encode('latin-1', 'ignore')
+
+    hostname = hostname or ''
+
+    table = ''
+    deletions = ''
+    for i in xrange(256):
+        c = chr(i)
+        if ('a' <= c <= 'z') or ('0' <= c <= '9') or (c == '-') or (c == '.'):
+            table += c
+        elif c in " _":
+            table += '-'
+        elif ('A' <= c <= 'Z'):
+            table += c.lower()
+        else:
+            table += '\0'
+            deletions += c
+
+    hostname = hostname.translate(table, deletions)
+
+    while hostname and hostname[0] in '-.':
+        hostname = hostname[1:]
+
+    while hostname and hostname[-1] in '-.':
+        hostname = hostname[0:-1]
+
+    return hostname

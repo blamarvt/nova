@@ -310,7 +310,7 @@ class VMOps(object):
 
         self.create_vifs(vm_ref, instance, network_info)
         self.inject_network_info(instance, network_info, vm_ref)
-        self.inject_hostname(instance, vm_ref, instance['hostname'])
+        self.inject_hostname(instance, vm_ref)
 
         return vm_ref
 
@@ -1391,8 +1391,10 @@ class VMOps(object):
         resp = self._make_plugin_call('agent', 'resetnetwork', instance, '',
                                                                args, vm_ref)
 
-    def inject_hostname(self, instance, vm_ref, hostname):
+    def inject_hostname(self, instance, vm_ref):
         """Inject the hostname of the instance into the xenstore."""
+        hostname = utils.sanitize_hostname(instance["display_name"])
+
         if instance.os_type == "windows":
             # NOTE(jk0): Windows hostnames can only be <= 15 chars.
             hostname = hostname[:15]
