@@ -458,7 +458,7 @@ class API(base.Base):
         updates = {}
 
         display_name = instance.get('display_name')
-        if display_name is None:
+        if not display_name:
             display_name = "Server %s" % instance['id']
 
         updates['display_name'] = display_name
