@@ -95,6 +95,7 @@ flags.DEFINE_string('floating_range', '4.4.4.0/24',
                     'Floating IP address block')
 flags.DEFINE_string('fixed_range', '10.0.0.0/8', 'Fixed IP address block')
 flags.DEFINE_string('fixed_range_v6', 'fd00::/48', 'Fixed IPv6 address block')
+flags.DEFINE_string('gateway', None, 'Default IPv4 gateway')
 flags.DEFINE_string('gateway_v6', None, 'Default IPv6 gateway')
 flags.DEFINE_integer('cnt_vpn_clients', 0,
                      'Number of addresses reserved for vpn clients')
@@ -491,6 +492,10 @@ class NetworkManager(manager.SchedulerDependentManager):
                                                    network_id,
                                                    host=host)
 
+    def get_dhcp_leases(self, ctxt, network_ref):
+        """Broker the request to the driver to fetch the dhcp leases"""
+        return self.driver.get_dhcp_leases(ctxt, network_ref)
+
     def init_host(self):
         """Do any initialization that needs to be run if this is a
         standalone service.
@@ -863,7 +868,7 @@ class NetworkManager(manager.SchedulerDependentManager):
                 self._setup_network(context, network_ref)
 
     def create_networks(self, context, label, cidr, multi_host, num_networks,
-                        network_size, cidr_v6, gateway_v6, bridge,
+                        network_size, cidr_v6, gateway, gateway_v6, bridge,
                         bridge_interface, dns1=None, dns2=None, **kwargs):
         """Create networks based on parameters."""
         # NOTE(jkoelker): these are dummy values to make sure iter works
@@ -947,7 +952,7 @@ class NetworkManager(manager.SchedulerDependentManager):
             if cidr and subnet_v4:
                 net['cidr'] = str(subnet_v4)
                 net['netmask'] = str(subnet_v4.netmask)
-                net['gateway'] = str(subnet_v4[1])
+                net['gateway'] = gateway or str(subnet_v4[1])
                 net['broadcast'] = str(subnet_v4.broadcast)
                 net['dhcp_start'] = str(subnet_v4[2])
 
@@ -987,9 +992,14 @@ class NetworkManager(manager.SchedulerDependentManager):
                 self._create_fixed_ips(context, network['id'])
         return networks
 
-    def delete_network(self, context, fixed_range, require_disassociated=True):
+    def delete_network(self, context, fixed_range, uuid,
+            require_disassociated=True):
 
-        network = db.network_get_by_cidr(context, fixed_range)
+        # Prefer uuid but we'll also take cidr for backwards compatibility
+        if uuid:
+            network = db.network_get_by_uuid(context.elevated(), uuid)
+        elif fixed_range:
+            network = db.network_get_by_cidr(context.elevated(), fixed_range)
 
         if require_disassociated and network.project_id is not None:
             raise ValueError(_('Network must be disassociated from project %s'
