@@ -105,6 +105,9 @@ class ViewBuilder(common.ViewBuilder):
         if server["server"]["status"] in self._progress_statuses:
             server["server"]["progress"] = instance.get("progress", 0)
 
+        for extension in self.show_extensions:
+            server = extension(instance, server)
+
         return server
 
     def index(self, request, instances):

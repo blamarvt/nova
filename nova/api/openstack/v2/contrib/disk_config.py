@@ -20,6 +20,7 @@ from xml.dom import minidom
 
 from webob import exc
 
+import nova.api.openstack.v2.views.servers as servers_view
 from nova.api.openstack.v2 import extensions
 from nova.api.openstack import xmlutil
 from nova import compute
@@ -91,6 +92,13 @@ class Disk_config(extensions.ExtensionDescriptor):
         super(Disk_config, self).__init__(ext_mgr)
         self.compute_api = compute.API()
 
+        def show_extension(compute_obj, api_obj):
+            value = disk_config_to_api(compute_obj[self.INTERNAL_DISK_CONFIG])
+            api_obj[self.API_DISK_CONFIG] = value
+            return api_obj
+
+        servers_view.ViewBuilder.show_extensions.append(show_extension)
+
     def _extract_resource_from_body(self, res, body,
             singular, singular_template, plural, plural_template):
         """Returns a list of the given resources from the request body.
@@ -118,10 +126,10 @@ class Disk_config(extensions.ExtensionDescriptor):
             singular='server', singular_template=ServerDiskConfigTemplate(),
             plural='servers', plural_template=ServersDiskConfigTemplate())
 
-        for server in servers:
-            db_server = self.compute_api.routing_get(context, server['id'])
-            value = db_server[self.INTERNAL_DISK_CONFIG]
-            server[self.API_DISK_CONFIG] = disk_config_to_api(value)
+        #for server in servers:
+        #    db_server = self.compute_api.routing_get(context, server['id'])
+        #    value = db_server[self.INTERNAL_DISK_CONFIG]
+        #    server[self.API_DISK_CONFIG] = disk_config_to_api(value)
 
         return res
 

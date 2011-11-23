@@ -433,6 +433,7 @@ class ViewBuilder(object):
     """Model API responses as dictionaries."""
 
     _collection_name = None
+    show_extensions = []
 
     def _get_links(self, request, identifier):
         return [{
