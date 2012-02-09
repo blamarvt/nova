@@ -1,4 +1,5 @@
 # Copyright (c) 2011 X.commerce, a business unit of eBay Inc.
+# Copyright 2012 Brian Lamar
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may

@@ -3,6 +3,7 @@
 # Copyright (c) 2011 Zadara Storage Inc.
 # Copyright (c) 2011 OpenStack LLC.
 # Copyright 2011 University of Southern California
+# Copyright 2012 Brian Lamar
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may

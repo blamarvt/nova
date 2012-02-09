@@ -2,6 +2,7 @@
 
 # Copyright 2011 Cloudscaling, Inc.
 # Author: Matthew Hooker <matt@cloudscaling.com>
+# Copyright 2012 Brian Lamar
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may

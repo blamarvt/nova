@@ -2,6 +2,7 @@
 
 # Copyright 2010 United States Government as represented by the
 # Administrator of the National Aeronautics and Space Administration.
+# Copyright 2012 Brian Lamar
 # All Rights Reserved.
 # Copyright (c) 2010 Citrix Systems, Inc.
 # Copyright (c) 2011 Piston Cloud Computing, Inc
